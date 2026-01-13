@@ -178,8 +178,6 @@ def crawl_category_shopee(cat, cookies=None, max_pages=5, retries=2):
                             "platform": "Shopee",
                             "category_name": name,
                             'id': str(itemid),
-                            'itemid': str(itemid),
-                            'shopid': str(shopid),
                             'name': basic.get('name', 'N/A'),
                             'price': price,
                             'original_price': (basic.get('price_before_discount', 0) or 0) / 100000,
