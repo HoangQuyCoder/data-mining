@@ -151,7 +151,7 @@ def crawl_category_shopee(cat, cookies=None, max_pages=5, retries=2):
         try:
             for packet in page.listen.steps(timeout=8):
                 try:
-                    body = packet.response.body
+                    body = packet.response.body # type: ignore
                     if not isinstance(body, dict):
                         continue
 
