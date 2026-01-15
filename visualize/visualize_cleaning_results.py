@@ -514,7 +514,7 @@ def main():
 
     # Đường dẫn
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    raw_file = os.path.join(base, 'data/raw/merged_raw_data.json')
+    raw_file = os.path.join(base, 'data/preliminary/merged_preliminary_data.json')
     cleaned_file = os.path.join(base, 'data/clean/merged_cleaned_data.json')
     output_dir = os.path.join(base, 'data/visualizations')
 
