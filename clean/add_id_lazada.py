@@ -6,7 +6,7 @@ from clean_nan import clean_nan_object
 base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 input_file = os.path.join(base, "data/raw/lazada_all_2026-01-08_12-04.json")
-output_file = os.path.join(base, "data/raw/lazada_all_2026-01-08_12-04.json")
+output_file = os.path.join(base, "data/preliminary/lazada_all_2026-01-08_12-04.json")
 
 
 def extract_id_from_url(url):

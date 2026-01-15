@@ -6,43 +6,28 @@ import os
 from datetime import datetime
 
 
-def extract_price(price_str):
+def extract_price(value):
     """Trích xuất giá trị số từ chuỗi giá (vd: '499.000 ₫' -> 499000)"""
-    try:
-        if pd.isna(price_str):
-            return None
-    except (TypeError, ValueError):
-        pass
 
-    if price_str is None:
-        return float(price_str)
-
-    # Loại bỏ ký tự đơn vị tiền tệ và khoảng trắng
-    price_str = str(price_str).replace('₫', '').strip()
-    # Loại bỏ dấu chấm phân cách hàng nghìn
-    price_str = price_str.replace('.', '').replace(',', '.')
-
-    try:
-        return float(price_str)
-    except:
+    if value is None or pd.isna(value):
         return None
 
+    if isinstance(value, (int, float)):
+        return float(value)
 
-def extract_discount(discount_str):
+    value = re.sub(r"[^\d]", "", str(value))
+    return float(value) if value else None
+
+
+def extract_discount(value):
     """Trích xuất tỷ lệ giảm giá (vd: '17% Off' -> 17)"""
-    try:
-        if pd.isna(discount_str):
-            return None
-    except (TypeError, ValueError):
-        pass
 
-    if discount_str is None:
+    if value is None:
         return None
-
-    discount_str = str(discount_str)
-    match = re.search(r'(\d+)%', discount_str)
-
-    return int(match.group(1)) if match else None
+    if isinstance(value, (int, float)):
+        return float(value)
+    match = re.search(r"\d+", value)
+    return float(match.group()) if match else None
 
 
 def extract_sold_value(sold_text):
@@ -94,6 +79,82 @@ def safe_to_numeric(value):
     return None
 
 
+def normalize_product(item: dict) -> dict:
+    platform = item.get("platform", "").lower()
+
+    normalized = {
+        "crawl_date": item.get("crawl_date"),
+        "platform": item.get("platform"),
+        "category": item.get("category_name"),
+        "id": item.get("id"),
+        "product_name": item.get("name"),
+        "current_price": None,
+        "original_price": None,
+        "discount_rate": None,
+        "rating_average": None,
+        "num_reviews": None,
+        "quantity_sold": None,
+        "quantity_sold_text": None,
+        "brand": None,
+        "seller_name": None,
+        'seller_location': None,
+        "product_url": item.get("url"),
+    }
+
+    # ===== TIKI =====
+    if platform == "tiki":
+        normalized.update({
+            "current_price": item.get("price"),
+            "original_price": item.get("original_price"),
+            "discount_rate": item.get("discount_rate"),
+            "rating_average": item.get("rating_average"),
+            "num_reviews": item.get("review_count"),
+            "quantity_sold": item.get("quantity_sold_value"),
+            "quantity_sold_text": item.get("quantity_sold_text"),
+            "brand": item.get("brand"),
+            "seller_name": item.get("seller_name"),
+            'seller_location': item.get("location"),
+        })
+
+    # ===== LAZADA =====
+    elif platform == "lazada":
+        normalized.update({
+            "current_price": item.get("price"),
+            "original_price": item.get("original_price"),
+            "discount_rate": item.get("discount"),
+            "rating_average": item.get("rating"),
+            "num_reviews": item.get("review_count"),
+            "quantity_sold": item.get("sold_value"),
+            "quantity_sold_text": item.get("sold_text"),
+            "brand": item.get("brand"),
+            "seller_name": item.get("seller_name"),
+            'seller_location': item.get("location"),
+        })
+
+    # ===== SHOPEE =====
+    elif platform == "shopee":
+        normalized.update({
+            "current_price": item.get("price"),
+            "original_price": item.get("original_price"),
+            "discount_rate": item.get("discount_rate"),
+            "rating_average": item.get("rating_average"),
+            "num_reviews": item.get("review_count"),
+            "quantity_sold": item.get("quantity_sold_value"),
+            "quantity_sold_text": item.get("quantity_sold_text"),
+            "brand": item.get("brand"),
+            "seller_name": item.get("seller_name"),
+            'seller_location': item.get("location"),
+        })
+
+    return normalized
+
+
+def normalize_dataset(data: list[dict]) -> pd.DataFrame:
+    normalized_data = [normalize_product(item) for item in data]
+    df = pd.DataFrame(normalized_data)
+    return df
+
+
 def clean_merged_data(input_file, output_file=None):
     """
     Làm sạch dữ liệu từ file merged_raw_data.json
@@ -111,35 +172,11 @@ def clean_merged_data(input_file, output_file=None):
     df = pd.DataFrame(data)
     print(f"✓ Đã load {df.shape[0]} records, {df.shape[1]} cột")
 
-    # Loại bỏ cột trùng lặp ngay từ đầu
-    df = df.loc[:, ~df.columns.duplicated(keep='first')]
-    print(f"✓ Sau loại bỏ duplicate columns: {df.shape[1]} cột\n")
-
     # 1. Chuẩn hóa tên cột
     print("🔧 Bước 1: Chuẩn hóa tên cột...")
     print(f"  - Cột trước rename: {list(df.columns)}")
 
-    column_mapping = {
-        'category_name': 'category',
-        'name': 'product_name',
-        'price': 'current_price',
-        'original_price': 'original_price',
-        'discount': 'discount_rate',
-        'rating': 'rating_average',
-        'review_count': 'num_reviews',
-        'sold_text': 'quantity_sold_text',
-        'location': 'seller_location',
-        'url': 'product_url',
-        'image': 'image_url'
-    }
-
-    # Chỉ rename cột tồn tại
-    existing_mapping = {k: v for k,
-                        v in column_mapping.items() if k in df.columns}
-    df = df.rename(columns=existing_mapping)
-
-    # Loại bỏ cột trùng lặp nếu có
-    df = df.loc[:, ~df.columns.duplicated(keep='first')]
+    df = normalize_dataset(data)
 
     print(f"✓ Cột sau rename: {list(df.columns)}\n")
 
@@ -148,8 +185,12 @@ def clean_merged_data(input_file, output_file=None):
     if 'current_price' in df.columns:
         df['current_price'] = df['current_price'].apply(extract_price)
     if 'original_price' in df.columns:
-        df['original_price'] = pd.to_numeric(
-            df['original_price'], errors='coerce')
+        df['original_price'] = df['original_price'].apply(extract_price)
+
+    df[['current_price', 'original_price']] = df[
+        ['current_price', 'original_price']
+    ].apply(pd.to_numeric, errors='coerce')
+
     print(f"✓ Giá tiền đã được chuẩn hóa\n")
 
     # 3. Xử lý discount
@@ -172,7 +213,7 @@ def clean_merged_data(input_file, output_file=None):
     print("📦 Bước 5: Xử lý số lượng đã bán...")
     if 'quantity_sold_text' in df.columns:
         df['quantity_sold'] = df['quantity_sold_text'].apply(
-            lambda x: extract_sold_value(x) if isinstance(x, str) else 0
+            lambda x: extract_sold_value(x) if isinstance(x, str) else None
         )
     print(f"✓ Quantity sold đã được chuẩn hóa\n")
 
@@ -181,21 +222,49 @@ def clean_merged_data(input_file, output_file=None):
     print(f"  - Dữ liệu thiếu trước xử lý:")
     print(df.isnull().sum())
 
-    # Điền giá trị mặc định
+    # # Điền giá trị mặc định
     if 'rating_average' in df.columns:
-        df['rating_average'] = df['rating_average'].fillna(0)
+        df["rating_average_missing"] = df["rating_average"].isna().astype(int)
+        df["rating_average"].fillna(
+            df["rating_average"].median(), inplace=True)
+    if 'discount_rate' in df.columns:
+        df["discount_rate_missing"] = df["discount_rate"].isna().astype(int)
+        df["discount_rate"].fillna(df["discount_rate"].median(), inplace=True)
     if 'num_reviews' in df.columns:
         df['num_reviews'] = df['num_reviews'].fillna(0)
     if 'quantity_sold' in df.columns:
         df['quantity_sold'] = df['quantity_sold'].fillna(0)
-    if 'discount_rate' in df.columns:
-        df['discount_rate'] = df['discount_rate'].fillna(0)
-    print("🗑️  Bước 7: Loại bỏ dữ liệu không hợp lệ...")
-    initial_count = len(df)
 
-    # Loại bỏ record không có id
-    if 'id' in df.columns:
-        df = df[df['id'].notna()]
+    df['original_price'] = pd.to_numeric(df['original_price'], errors="coerce")
+
+    text_columns = [
+        "quantity_sold_text",
+        "brand",
+        "seller_name",
+        "seller_location"
+    ]
+    df[text_columns] = df[text_columns].fillna("UNKNOWN")
+    print(f"✓ Dữ liệu thiếu đẫ được xử lí\n")
+
+    print("🗑️  Bước 7: Loại bỏ dữ liệu không hợp lệ...")
+    print("Số record trước khi loại bỏ", len(df))
+
+    df = df.sort_values(
+        by=[
+            "quantity_sold",
+            "num_reviews",
+            "rating_average_missing"
+        ],
+        ascending=[False, False, True]
+    )
+
+    DEDUP_KEYS = ["platform", "id"]
+
+    df_dedup = df.drop_duplicates(
+        subset=DEDUP_KEYS,
+        keep="first"
+    )
+    df_dedup = df_dedup.reset_index(drop=True)
 
     # Loại bỏ record không có tên sản phẩm
     if 'product_name' in df.columns:
@@ -205,60 +274,20 @@ def clean_merged_data(input_file, output_file=None):
     if 'current_price' in df.columns:
         df = df[df['current_price'] > 0]
         df = df[df['current_price'].notna()]
-    # 8. Thêm các cột tiêu chí
-    print("➕ Bước 8: Thêm các cột tiêu chí...")
 
-    # Tính giá khuyến mại thực tế
-    if 'original_price' in df.columns and 'discount_rate' in df.columns:
-        df['sale_price'] = df['original_price'] - \
-            df['original_price'] * df['discount_rate'] / 100
+    print("Số record sau khi loại bỏ", len(df), "\n")
 
-    # Phân loại sản phẩm dựa trên rating
-    def categorize_rating(rating):
-        if rating >= 4.5:
-            return 'Excellent'
-        elif rating >= 4.0:
-            return 'Very Good'
-        elif rating >= 3.5:
-            return 'Good'
-        elif rating >= 3.0:
-            return 'Average'
-        else:
-            return 'Poor'
-
-    if 'rating_average' in df.columns:
-        df['quality_category'] = df['rating_average'].apply(categorize_rating)
-
-    # Phân loại độ phổ biến dựa trên số review
-    def categorize_popularity(reviews):
-        if reviews >= 1000:
-            return 'Very Popular'
-        elif reviews >= 500:
-            return 'Popular'
-        elif reviews >= 100:
-            return 'Moderate'
-        elif reviews >= 10:
-            return 'Low'
-        else:
-            return 'Very Low'
-
-    if 'num_reviews' in df.columns:
-        df['popularity_category'] = df['num_reviews'].apply(
-            categorize_popularity)
-
-    print(f"✓ Đã thêm các cột tiêu chí\n")
-
-    # 9. Sắp xếp và chọn cột cần thiết
+    # 8. Sắp xếp và chọn cột cần thiết
     print("📋 Bước 9: Chọn cột cần thiết...")
 
     # Danh sách cột cuối cùng
     final_columns = [
         'id', 'crawl_date', 'platform', 'category', 'product_name',
-        'current_price', 'original_price', 'sale_price', 'discount_rate',
+        'current_price', 'original_price', 'discount_rate',
         'rating_average', 'quality_category', 'num_reviews', 'popularity_category',
         'quantity_sold', 'quantity_sold_text',
         'brand', 'seller_name', 'seller_location',
-        'product_url', 'image_url'
+        'product_url', 'rating_average_missing', 'discount_rate_missing'
     ]
 
     # Chỉ lấy các cột tồn tại
@@ -267,7 +296,7 @@ def clean_merged_data(input_file, output_file=None):
 
     print(f"✓ Cột cuối cùng: {len(df.columns)} cột\n")
 
-    # 10. Lưu dữ liệu
+    # 9. Lưu dữ liệu
     if output_file is None:
         base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         output_file = os.path.join(base, 'data/clean/merged_cleaned_data.json')
@@ -283,7 +312,7 @@ def clean_merged_data(input_file, output_file=None):
 
     print(f"✓ Dữ liệu đã được lưu\n")
 
-    # 11. Thống kê tóm tắt
+    # 10. Thống kê tóm tắt
     print("=" * 60)
     print("📊 THỐNG KÊ TÓM TẮT")
     print("=" * 60)
@@ -324,7 +353,8 @@ def clean_merged_data(input_file, output_file=None):
 if __name__ == "__main__":
     # Đường dẫn input/output
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    input_file = os.path.join(base, 'data/raw/merged_raw_data.json')
+    input_file = os.path.join(
+        base, 'data/preliminary/merged_preliminary_data.json')
     output_file = os.path.join(base, 'data/clean/merged_cleaned_data.json')
 
     print("\n🚀 BẮT ĐẦU LÀMS SẠCH DỮ LIỆU")
