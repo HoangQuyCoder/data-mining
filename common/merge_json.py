@@ -3,9 +3,9 @@ import os
 
 base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 data = os.path.join(base, "data")
-raw = os.path.join(data, "raw")
+raw = os.path.join(data, "preliminary")
 
-output = os.path.join(base, "data/raw/merged_raw_data.json")
+output = os.path.join(base, "data/preliminary/merged_preliminary_data.json")
 
 merged = []
 
