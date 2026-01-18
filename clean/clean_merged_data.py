@@ -94,7 +94,6 @@ class ProductNormalizer:
             "quantity_sold": "quantity_sold_value",
             "quantity_sold_text": "quantity_sold_text",
             "brand": "brand",
-            "seller_name": "seller_name",
             "seller_location": "location",
         },
         "lazada": {
@@ -106,7 +105,6 @@ class ProductNormalizer:
             "quantity_sold": "sold_value",
             "quantity_sold_text": "sold_text",
             "brand": "brand",
-            "seller_name": "seller_name",
             "seller_location": "location",
         },
         "shopee": {
@@ -118,7 +116,6 @@ class ProductNormalizer:
             "quantity_sold": "quantity_sold_value",
             "quantity_sold_text": "quantity_sold_text",
             "brand": "brand",
-            "seller_name": "seller_name",
             "seller_location": "location",
         },
     }
@@ -142,7 +139,6 @@ class ProductNormalizer:
             "quantity_sold": None,
             "quantity_sold_text": None,
             "brand": None,
-            "seller_name": None,
             "seller_location": None,
             "product_url": item.get("url"),
         }
@@ -170,10 +166,10 @@ class DataCleaner:
     # Danh sách cột cuối cùng cần giữ lại
     FINAL_COLUMNS = [
         'id', 'crawl_date', 'platform', 'category', 'product_name',
-        'current_price', 'original_price', 'discount_rate',
+        'current_price', 'discount_rate',
         'rating_average', 'quality_category', 'num_reviews', 'popularity_category',
-        'quantity_sold', 'quantity_sold_text',
-        'brand', 'seller_name', 'seller_location',
+        'quantity_sold',
+        'brand', 'seller_location',
         'product_url', 'rating_average_missing', 'discount_rate_missing'
     ]
 
@@ -181,7 +177,6 @@ class DataCleaner:
     TEXT_COLUMNS = [
         "quantity_sold_text",
         "brand",
-        "seller_name",
         "seller_location"
     ]
 
@@ -267,6 +262,24 @@ class DataCleaner:
                     x) if isinstance(x, str) else None
             )
         print(f"✓ Quantity sold đã được chuẩn hóa\n")
+
+    def clean_brand(self):
+        """Bước 6.5: Xử lý brand - normalize các biến thể 'No Brand'"""
+        print("🏷️  Bước 5.5: Xử lý brand...")
+        if 'brand' in self.df.columns:
+            def normalize_brand(value):
+                if value is None or pd.isna(value):
+                    return "UNKNOWN"
+
+                value_str = str(value).strip()
+                # Normalize các biến thể của "No Brand"
+                if value_str.lower() in ["no brand", "no.brand", "nobrand", "none", "n/a", ""]:
+                    return "UNKNOWN"
+
+                return value_str if value_str else "UNKNOWN"
+
+            self.df['brand'] = self.df['brand'].apply(normalize_brand)
+        print(f"✓ Brand đã được chuẩn hóa\n")
 
     def handle_missing_data(self):
         """Bước 7: Xử lý dữ liệu thiếu"""
@@ -419,6 +432,7 @@ class DataCleaner:
         self.clean_discount()
         self.clean_ratings()
         self.clean_quantity_sold()
+        self.clean_brand()
         self.handle_missing_data()
         self.remove_duplicates_and_invalid()
         self.select_final_columns()
