@@ -231,7 +231,7 @@ class FeatureEngineer:
                 return 'Elite'
             elif rating >= 4.0 and sold >= p50_sold:
                 return 'Pro'
-            elif rating >= 3.5:
+            elif rating >= 3.5 and sold >= p25_sold:
                 return 'Standard'
             else:
                 return 'New'
