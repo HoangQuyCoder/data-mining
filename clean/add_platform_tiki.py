@@ -16,14 +16,17 @@ new_data = []
 for item in data if isinstance(data, list) else []:
     if not isinstance(item, dict):
         continue
-    new_item = {}
 
-    for key, value in item.items():
-        new_item[key] = value
-        if key == "crawl_date":
-            new_item["platform"] = "Tiki"
+    new_item = {
+        k: v for k, v in item.items()
+        if k != "badges" and k!= "thumbnail_url"
+    }
+
+    if "crawl_date" in new_item:
+        new_item["platform"] = "Tiki"
 
     new_data.append(new_item)
+
 
 with open(output_file, "w", encoding="utf-8") as f:
     json.dump(new_data, f, ensure_ascii=False, indent=2)
