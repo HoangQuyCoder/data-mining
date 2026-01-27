@@ -12,7 +12,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 
 def get_fresh_cookies(
-    url: str = "https://tiki.vn",
+    url: str = "",
     headless: bool = True,
     scroll: bool = False,
     wait_time: int = 10,

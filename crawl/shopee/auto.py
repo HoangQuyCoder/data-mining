@@ -173,6 +173,8 @@ def crawl_category_shopee(cat, cookies=None, max_pages=5, retries=2):
 
                         price = (basic.get('price', 0) or 0) / 100000
 
+                        sold_text = basic.get('item_card_display_sold_count',{}).get('display_sold_count_text',{})
+
                         product = {
                             "crawl_date": datetime.datetime.now().strftime("%Y-%m-%d"),
                             "platform": "Shopee",
@@ -181,12 +183,12 @@ def crawl_category_shopee(cat, cookies=None, max_pages=5, retries=2):
                             'name': basic.get('name', 'N/A'),
                             'price': price,
                             'original_price': (basic.get('price_before_discount', 0) or 0) / 100000,
-                            'discount': basic.get('discount', ''),
+                            'discount_rate': basic.get('discount', ''),
                             'rating_average': rating_star_val,
                             'review_count': basic.get('cmt_count'),
-                            'liked_count': basic.get('liked_count', 0),
-                            'quantity_sold_value': basic.get('sold', 0),
-                            'quantity_historical_sold_value': basic.get('historical_sold', 0),
+                            # 'liked_count': basic.get('liked_count', 0),
+                            'quantity_sold_value': basic.get('historical_sold', 0),
+                            'quantity_sold_text': sold_text,
                             'brand': str(basic.get('brand')),
                             'location': basic.get('shop_location', 'N/A'),
                             'seller_name': basic.get('shop_name'),

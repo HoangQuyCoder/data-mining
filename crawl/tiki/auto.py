@@ -122,7 +122,6 @@ def crawl_category_tiki(cat, cookies, max_pages, retries=2):
                         "name": item.get("name"),
                         "price": item.get("price"),
                         "original_price": item.get("original_price"),
-                        "discount": item.get("discount"),
                         "discount_rate": item.get("discount_rate"),
                         "rating_average": item.get("rating_average"),
                         "review_count": item.get("review_count"),
