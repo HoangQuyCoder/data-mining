@@ -1,9 +1,488 @@
+from sklearn.preprocessing import MinMaxScaler
+from matplotlib import pyplot as plt
 import pandas as pd
 import numpy as np
 import json
 import re
 import os
 from datetime import datetime
+import warnings
+warnings.filterwarnings('ignore')
+
+# Thiết lập font tiếng Việt
+plt.rcParams['font.family'] = 'DejaVu Sans'
+plt.rcParams['axes.unicode_minus'] = False
+
+
+class OutlierHandler:
+    """Class xử lý ngoại lệ trong dữ liệu"""
+
+    def __init__(self, df):
+        self.df = df.copy()
+        self.df_original = df.copy()
+        self.outliers_log = []
+
+    def log_changes(self, step, before, after, details=""):
+        """Ghi lại các thay đổi"""
+        log_entry = {
+            'step': step,
+            'records_before': before,
+            'records_after': after,
+            'records_removed': before - after,
+            'removal_rate': f"{((before - after) / before * 100):.2f}%",
+            'details': details
+        }
+        self.outliers_log.append(log_entry)
+        print(f"\n{'='*80}")
+        print(f"[{step}]")
+        print(f"   Records trước: {before:,}")
+        print(f"   Records sau: {after:,}")
+        print(
+            f"   Đã loại bỏ: {before - after:,} ({log_entry['removal_rate']})")
+        if details:
+            print(f"   Chi tiết: {details}")
+
+    def handle_price_outliers(self, lower_percentile=0.1, upper_percentile=99.9):
+        """
+        Xử lý ngoại lệ về giá
+        - Loại bỏ giá quá thấp (dưới 1,000 VNĐ - có thể là lỗi)
+        - Loại bỏ giá quá cao (trên percentile 99.9)
+        """
+        print("\n" + "="*80)
+        print("XỬ LÝ NGOẠI LỆ VỀ GIÁ")
+        print("="*80)
+
+        before = len(self.df)
+
+        # Tính ngưỡng
+        min_valid_price = 1000  # Giá tối thiểu hợp lệ
+        price_upper = self.df['current_price'].quantile(upper_percentile / 100)
+
+        print(f"\nThống kê giá ban đầu:")
+        print(f"   - Min: {self.df['current_price'].min():,.0f} VNĐ")
+        print(f"   - Max: {self.df['current_price'].max():,.0f} VNĐ")
+        print(f"   - Mean: {self.df['current_price'].mean():,.0f} VNĐ")
+        print(f"   - Median: {self.df['current_price'].median():,.0f} VNĐ")
+        print(f"   - Percentile {upper_percentile}%: {price_upper:,.0f} VNĐ")
+
+        # Lọc giá
+        price_outliers = self.df[
+            (self.df['current_price'] < min_valid_price) |
+            (self.df['current_price'] > price_upper)
+        ]
+
+        print(f"\nPhát hiện {len(price_outliers):,} ngoại lệ về giá:")
+        print(
+            f"   - Giá < {min_valid_price:,} VNĐ: {len(self.df[self.df['current_price'] < min_valid_price]):,} records")
+        print(
+            f"   - Giá > {price_upper:,.0f} VNĐ: {len(self.df[self.df['current_price'] > price_upper]):,} records")
+
+        self.df = self.df[
+            (self.df['current_price'] >= min_valid_price) &
+            (self.df['current_price'] <= price_upper)
+        ]
+
+        after = len(self.df)
+        self.log_changes(
+            "Xử lý giá outliers",
+            before,
+            after,
+            f"Loại bỏ giá < {min_valid_price:,} VNĐ và > {price_upper:,.0f} VNĐ"
+        )
+
+        print(f"\nThống kê giá sau xử lý:")
+        print(f"   - Min: {self.df['current_price'].min():,.0f} VNĐ")
+        print(f"   - Max: {self.df['current_price'].max():,.0f} VNĐ")
+        print(f"   - Mean: {self.df['current_price'].mean():,.0f} VNĐ")
+        print(f"   - Median: {self.df['current_price'].median():,.0f} VNĐ")
+
+        return self
+
+    def handle_quantity_sold_outliers(self, upper_percentile=99.5):
+        """
+        Xử lý ngoại lệ về số lượng bán
+        - Loại bỏ các giá trị bất thường quá cao
+        """
+        print("\n" + "="*80)
+        print("XỬ LÝ NGOẠI LỆ VỀ SỐ LƯỢNG BÁN")
+        print("="*80)
+
+        before = len(self.df)
+
+        # Chỉ xử lý các records có dữ liệu quantity_sold_value
+        has_qty = self.df['quantity_sold'].notna()
+
+        if has_qty.sum() == 0:
+            print("Không có dữ liệu quantity_sold để xử lý")
+            return self
+
+        qty_upper = self.df.loc[has_qty, 'quantity_sold'].quantile(
+            upper_percentile / 100)
+
+        print(f"\nThống kê số lượng bán ban đầu (có dữ liệu):")
+        print(f"   - Số records có dữ liệu: {has_qty.sum():,}")
+        print(f"   - Min: {self.df.loc[has_qty, 'quantity_sold'].min():,.0f}")
+        print(f"   - Max: {self.df.loc[has_qty, 'quantity_sold'].max():,.0f}")
+        print(
+            f"   - Mean: {self.df.loc[has_qty, 'quantity_sold'].mean():,.0f}")
+        print(
+            f"   - Median: {self.df.loc[has_qty, 'quantity_sold'].median():,.0f}")
+        print(f"   - Percentile {upper_percentile}%: {qty_upper:,.0f}")
+
+        # Lọc outliers
+        qty_outliers = (has_qty) & (self.df['quantity_sold'] > qty_upper)
+
+        print(
+            f"\nPhát hiện {qty_outliers.sum():,} ngoại lệ về số lượng bán (> {qty_upper:,.0f})")
+
+        self.df = self.df[~qty_outliers]
+
+        after = len(self.df)
+        self.log_changes(
+            "Xử lý số lượng bán outliers",
+            before,
+            after,
+            f"Loại bỏ quantity_sold > {qty_upper:,.0f}"
+        )
+
+        has_qty_after = self.df['quantity_sold'].notna()
+        if has_qty_after.sum() > 0:
+            print(f"\nThống kê số lượng bán sau xử lý:")
+            print(f"   - Số records có dữ liệu: {has_qty_after.sum():,}")
+            print(
+                f"   - Min: {self.df.loc[has_qty_after, 'quantity_sold'].min():,.0f}")
+            print(
+                f"   - Max: {self.df.loc[has_qty_after, 'quantity_sold'].max():,.0f}")
+            print(
+                f"   - Mean: {self.df.loc[has_qty_after, 'quantity_sold'].mean():,.0f}")
+            print(
+                f"   - Median: {self.df.loc[has_qty_after, 'quantity_sold'].median():,.0f}")
+
+        return self
+
+    def handle_discount_outliers(self, max_discount=95):
+        """
+        Xử lý ngoại lệ về discount rate
+        - Loại bỏ discount > 95% (thường là lỗi hoặc chiêu trò marketing)
+        """
+        print("\n" + "="*80)
+        print("XỬ LÝ NGOẠI LỆ VỀ DISCOUNT")
+        print("="*80)
+
+        before = len(self.df)
+
+        has_discount = self.df['discount_rate'].notna()
+
+        if has_discount.sum() == 0:
+            print("Không có dữ liệu discount_rate để xử lý")
+            return self
+
+        print(f"\nThống kê discount ban đầu:")
+        print(f"   - Số records có dữ liệu: {has_discount.sum():,}")
+        print(
+            f"   - Min: {self.df.loc[has_discount, 'discount_rate'].min():.1f}%")
+        print(
+            f"   - Max: {self.df.loc[has_discount, 'discount_rate'].max():.1f}%")
+        print(
+            f"   - Mean: {self.df.loc[has_discount, 'discount_rate'].mean():.1f}%")
+        print(
+            f"   - Median: {self.df.loc[has_discount, 'discount_rate'].median():.1f}%")
+
+        # Lọc discount bất thường
+        discount_outliers = (has_discount) & (
+            self.df['discount_rate'] > max_discount)
+
+        print(
+            f"\nPhát hiện {discount_outliers.sum():,} ngoại lệ về discount (> {max_discount}%)")
+
+        self.df = self.df[~discount_outliers]
+
+        after = len(self.df)
+        self.log_changes(
+            "Xử lý discount outliers",
+            before,
+            after,
+            f"Loại bỏ discount > {max_discount}%"
+        )
+
+        has_discount_after = self.df['discount_rate'].notna()
+        if has_discount_after.sum() > 0:
+            print(f"\nThống kê discount sau xử lý:")
+            print(f"   - Số records có dữ liệu: {has_discount_after.sum():,}")
+            print(
+                f"   - Min: {self.df.loc[has_discount_after, 'discount_rate'].min():.1f}%")
+            print(
+                f"   - Max: {self.df.loc[has_discount_after, 'discount_rate'].max():.1f}%")
+            print(
+                f"   - Mean: {self.df.loc[has_discount_after, 'discount_rate'].mean():.1f}%")
+            print(
+                f"   - Median: {self.df.loc[has_discount_after, 'discount_rate'].median():.1f}%")
+
+        return self
+
+    def handle_num_reviews_outliers(
+        self,
+        upper_percentile=99.7,
+        max_review_per_sold_ratio=1.0,
+        strategy="cap"  # "cap" | "drop"
+    ):
+        """
+        Xử lý outlier cho num_reviews theo nghiệp vụ
+
+        - Chỉ xử lý sản phẩm đã bán
+        - Cap hoặc drop review quá cao
+        - Đảm bảo num_reviews <= quantity_sold * ratio
+        """
+
+        print("\n" + "="*80)
+        print("XỬ LÝ OUTLIER NUM_REVIEWS")
+        print("="*80)
+
+        before = len(self.df)
+
+        # Chỉ xử lý sản phẩm đã bán
+        mask_sold = (
+            self.df['num_reviews'].notna() &
+            self.df['quantity_sold'].notna() &
+            (self.df['quantity_sold'] > 0)
+        )
+
+        if mask_sold.sum() == 0:
+            print("Không có dữ liệu num_reviews hợp lệ để xử lý")
+            return self
+
+        # ================================
+        # Thống kê ban đầu
+        # ================================
+        print(f"\nThống kê num_reviews ban đầu:")
+        print(f"   - Records xử lý: {mask_sold.sum():,}")
+        print(f"   - Min: {self.df.loc[mask_sold, 'num_reviews'].min():,}")
+        print(f"   - Max: {self.df.loc[mask_sold, 'num_reviews'].max():,}")
+        print(
+            f"   - Mean: {self.df.loc[mask_sold, 'num_reviews'].mean():,.1f}")
+        print(
+            f"   - Median: {self.df.loc[mask_sold, 'num_reviews'].median():,.1f}")
+
+        # ================================
+        # 1. Percentile cap
+        # ================================
+        review_upper = self.df.loc[mask_sold, 'num_reviews'].quantile(
+            upper_percentile / 100)
+
+        print(f"   - Percentile {upper_percentile}%: {review_upper:,.0f}")
+
+        # ================================
+        # 2. Logic nghiệp vụ: review <= sold * ratio
+        # ================================
+        max_allowed_review = self.df['quantity_sold'] * \
+            max_review_per_sold_ratio
+
+        outlier_mask = (
+            mask_sold &
+            (
+                (self.df['num_reviews'] > review_upper) |
+                (self.df['num_reviews'] > max_allowed_review)
+            )
+        )
+
+        outlier_count = outlier_mask.sum()
+        print(f"\nPhát hiện {outlier_count:,} outlier num_reviews")
+
+        if outlier_count == 0:
+            print("   ✅ Không có outlier cần xử lý")
+            return self
+
+        # ================================
+        # 3. Xử lý
+        # ================================
+        if strategy == "drop":
+            self.df = self.df[~outlier_mask]
+            print(f"   → Drop {outlier_count:,} records")
+        else:
+            # Cap về ngưỡng hợp lệ nhất
+            cap_value = np.minimum(review_upper, max_allowed_review)
+            self.df.loc[outlier_mask,
+                        'num_reviews'] = cap_value[outlier_mask].astype('int64')
+            print(f"   → Cap num_reviews về min(percentile, sold×ratio)")
+
+        after = len(self.df)
+
+        self.log_changes(
+            "Xử lý num_reviews outliers",
+            before,
+            after,
+            f"strategy={strategy}, percentile={upper_percentile}, max_review_per_sold={max_review_per_sold_ratio}"
+        )
+
+        # ================================
+        # Thống kê sau xử lý
+        # ================================
+        mask_after = (
+            self.df['num_reviews'].notna() &
+            (self.df['quantity_sold'] > 0)
+        )
+
+        print(f"\nThống kê num_reviews sau xử lý:")
+        print(f"   - Max: {self.df.loc[mask_after, 'num_reviews'].max():,}")
+        print(
+            f"   - Mean: {self.df.loc[mask_after, 'num_reviews'].mean():,.1f}")
+        print(
+            f"   - Median: {self.df.loc[mask_after, 'num_reviews'].median():,.1f}")
+
+        return self
+
+    def handle_rating_outliers(self):
+        """
+        Xử lý ngoại lệ về rating
+        - Loại bỏ rating = 0 (thường là sản phẩm không có đánh giá thực sự)
+        - Giữ lại records có rating từ 0.1 đến 5.0
+        """
+        print("\n" + "="*80)
+        print("XỬ LÝ NGOẠI LỆ VỀ RATING")
+        print("="*80)
+
+        before = len(self.df)
+
+        has_rating = self.df['rating_average'].notna()
+
+        if has_rating.sum() == 0:
+            print("Không có dữ liệu rating_average để xử lý")
+            return self
+
+        print(f"\nThống kê rating ban đầu:")
+        print(f"   - Số records có rating: {has_rating.sum():,}")
+        print(f"   - Rating = 0: {(self.df['rating_average'] == 0).sum():,}")
+        print(
+            f"   - Rating trung bình: {self.df.loc[has_rating, 'rating_average'].mean():.2f}")
+
+        # Loại bỏ rating = 0
+        rating_zero = (has_rating) & (self.df['rating_average'] == 0)
+        print(f"\nLoại bỏ {rating_zero.sum():,} records có rating = 0")
+
+        self.df = self.df[~rating_zero]
+
+        after = len(self.df)
+        self.log_changes(
+            "Xử lý rating outliers",
+            before,
+            after,
+            "Loại bỏ rating = 0"
+        )
+
+        has_rating_after = self.df['rating_average'].notna()
+        if has_rating_after.sum() > 0:
+            print(f"\nThống kê rating sau xử lý:")
+            print(f"   - Số records có rating: {has_rating_after.sum():,}")
+            print(
+                f"   - Rating trung bình: {self.df.loc[has_rating_after, 'rating_average'].mean():.2f}")
+
+        return self
+
+    def generate_comparison_report(self, output_dir='outlier_analysis'):
+        """Tạo báo cáo so sánh trước và sau xử lý"""
+        import os
+        os.makedirs(output_dir, exist_ok=True)
+
+        print("\n" + "="*80)
+        print("TẠO BÁO CÁO SO SÁNH")
+        print("="*80)
+
+        # 1. So sánh phân bố giá
+        fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+
+        # Biểu đồ 1: Phân bố giá (log scale)
+        axes[0, 0].hist(self.df_original['current_price'],
+                        bins=100, alpha=0.5, label='Trước xử lý', color='red')
+        axes[0, 0].hist(self.df['current_price'], bins=100,
+                        alpha=0.5, label='Sau xử lý', color='green')
+        axes[0, 0].set_xlabel('Giá (VNĐ)')
+        axes[0, 0].set_ylabel('Số lượng')
+        axes[0, 0].set_title('So sánh phân bố giá')
+        axes[0, 0].set_yscale('log')
+        axes[0, 0].legend()
+        axes[0, 0].grid(True, alpha=0.3)
+
+        # Biểu đồ 2: Boxplot giá
+        box_data = [
+            self.df_original['current_price'].values,
+            self.df['current_price'].values
+        ]
+        axes[0, 1].boxplot(box_data, labels=['Trước xử lý', 'Sau xử lý'])
+        axes[0, 1].set_ylabel('Giá (VNĐ)')
+        axes[0, 1].set_title('Boxplot so sánh giá')
+        axes[0, 1].grid(True, alpha=0.3)
+
+        # Biểu đồ 3: Phân bố discount
+        has_discount_orig = self.df_original['discount_rate'].notna()
+        has_discount_new = self.df['discount_rate'].notna()
+
+        if has_discount_orig.sum() > 0 and has_discount_new.sum() > 0:
+            axes[1, 0].hist(self.df_original.loc[has_discount_orig, 'discount_rate'],
+                            bins=50, alpha=0.5, label='Trước xử lý', color='red')
+            axes[1, 0].hist(self.df.loc[has_discount_new, 'discount_rate'],
+                            bins=50, alpha=0.5, label='Sau xử lý', color='green')
+            axes[1, 0].set_xlabel('Discount (%)')
+            axes[1, 0].set_ylabel('Số lượng')
+            axes[1, 0].set_title('So sánh phân bố Discount')
+            axes[1, 0].legend()
+            axes[1, 0].grid(True, alpha=0.3)
+
+        # Biểu đồ 4: So sánh category distribution
+        top_cats_orig = self.df_original['category'].value_counts().head(10)
+        top_cats_new = self.df['category'].value_counts().head(10)
+
+        x = np.arange(len(top_cats_orig))
+        width = 0.35
+
+        axes[1, 1].bar(x - width/2, top_cats_orig.values, width,
+                       label='Trước xử lý', alpha=0.8, color='red')
+        axes[1, 1].bar(x + width/2, [top_cats_new.get(cat, 0) for cat in top_cats_orig.index],
+                       width, label='Sau xử lý', alpha=0.8, color='green')
+        axes[1, 1].set_xlabel('Category')
+        axes[1, 1].set_ylabel('Số lượng')
+        axes[1, 1].set_title('So sánh Top 10 Categories')
+        axes[1, 1].set_xticks(x)
+        axes[1, 1].set_xticklabels([cat[:20] + '...' if len(cat) > 20 else cat
+                                    for cat in top_cats_orig.index], rotation=45, ha='right')
+        axes[1, 1].legend()
+        axes[1, 1].grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        plt.savefig(f'{output_dir}/comparison_report.png',
+                    dpi=300, bbox_inches='tight')
+        print(f"   ✓ Đã lưu: {output_dir}/comparison_report.png")
+        plt.close()
+
+        # 2. Tạo bảng tóm tắt
+        summary_df = pd.DataFrame(self.outliers_log)
+        summary_df.to_csv(
+            f'{output_dir}/outlier_handling_summary.csv', index=False, encoding='utf-8-sig')
+        print(f"   ✓ Đã lưu: {output_dir}/outlier_handling_summary.csv")
+
+        # 3. In báo cáo cuối cùng
+        print("\n" + "="*80)
+        print("TÓM TẮT CUỐI CÙNG")
+        print("="*80)
+        print(f"\nDữ liệu ban đầu: {len(self.df_original):,} records")
+        print(f"Dữ liệu sau xử lý: {len(self.df):,} records")
+        print(
+            f"Tổng đã loại bỏ: {len(self.df_original) - len(self.df):,} records")
+        print(
+            f"Tỷ lệ giữ lại: {len(self.df) / len(self.df_original) * 100:.2f}%")
+
+        print("\nChi tiết các bước xử lý:")
+        for log in self.outliers_log:
+            print(f"\n[{log['step']}]")
+            print(
+                f"   - Loại bỏ: {log['records_removed']:,} records ({log['removal_rate']})")
+            if log['details']:
+                print(f"   - {log['details']}")
+
+        return self
+
+    def get_cleaned_data(self):
+        """Trả về dữ liệu đã làm sạch"""
+        return self.df
 
 
 class ValueExtractor:
@@ -167,17 +646,10 @@ class DataCleaner:
     FINAL_COLUMNS = [
         'id', 'crawl_date', 'platform', 'category', 'product_name',
         'current_price', 'discount_rate',
-        'rating_average', 'quality_category', 'num_reviews', 'popularity_category',
+        'rating_average', 'num_reviews',
         'quantity_sold',
         'brand', 'seller_location',
-        'product_url', 'rating_average_missing', 'discount_rate_missing'
-    ]
-
-    # Cột text cần điền giá trị mặc định
-    TEXT_COLUMNS = [
-        "quantity_sold_text",
-        "brand",
-        "seller_location"
+        'product_url',
     ]
 
     # Key để loại bỏ duplicate
@@ -269,56 +741,145 @@ class DataCleaner:
         if 'brand' in self.df.columns:
             def normalize_brand(value):
                 if value is None or pd.isna(value):
-                    return "UNKNOWN"
+                    return "No Brand"
 
                 value_str = str(value).strip()
                 # Normalize các biến thể của "No Brand"
-                if value_str.lower() in ["no brand", "no.brand", "nobrand", "none", "n/a", ""]:
-                    return "UNKNOWN"
+                if value_str.lower() in ["No brand", "no brand", "no.brand", "nobrand", "none", "n/a", ""]:
+                    return "No Brand"
 
-                return value_str if value_str else "UNKNOWN"
+                return value_str if value_str else "No Brand"
 
             self.df['brand'] = self.df['brand'].apply(normalize_brand)
         print(f"✓ Brand đã được chuẩn hóa\n")
 
     def handle_missing_data(self):
-        """Bước 7: Xử lý dữ liệu thiếu"""
-        print("🧹 Bước 6: Xử lý dữ liệu thiếu...")
-        print(f"  - Dữ liệu thiếu trước xử lý:")
-        print(self.df.isnull().sum())
+        """Bước 6: Xử lý missing values - PHIÊN BẢN DROP RECORD KHÔNG ĐỦ DỮ LIỆU"""
+        print("🧹 Bước 6: Xử lý missing values (phiên bản drop record thiếu dữ liệu quan trọng)...")
 
-        # Xử lý rating_average
-        if 'rating_average' in self.df.columns:
-            self.df["rating_average_missing"] = self.df["rating_average"].isna().astype(
-                int)
-            self.df["rating_average"].fillna(
-                self.df["rating_average"].median(), inplace=True
-            )
+        before_total = len(self.df)
+        print(f"   Trước xử lý: {before_total:,} records")
 
-        # Xử lý discount_rate
-        if 'discount_rate' in self.df.columns:
-            self.df["discount_rate_missing"] = self.df["discount_rate"].isna().astype(
-                int)
-            self.df["discount_rate"].fillna(
-                self.df["discount_rate"].median(), inplace=True
-            )
+        # =====================================================================
+        # Định nghĩa các cột BẮT BUỘC (critical) - thiếu bất kỳ cột nào thì drop
+        # =====================================================================
+        CRITICAL_COLUMNS = [
+            'quantity_sold',
+            'num_reviews',
+            'rating_average',
+            'discount_rate',
+        ]
 
-        # Xử lý num_reviews và quantity_sold
-        if 'num_reviews' in self.df.columns:
-            self.df['num_reviews'] = self.df['num_reviews'].fillna(0)
+        # Lọc các cột critical thực sự tồn tại trong dataframe
+        critical_cols_present = [
+            col for col in CRITICAL_COLUMNS if col in self.df.columns]
+
+        if not critical_cols_present:
+            print("   ⚠️ Không tìm thấy cột critical nào → không drop theo missing")
+        else:
+            print(
+                f"   Các cột bắt buộc kiểm tra: {', '.join(critical_cols_present)}")
+
+            # Đếm missing ở các cột critical
+            missing_critical = self.df[critical_cols_present].isna().sum(
+                axis=1)
+            rows_to_drop = missing_critical > 0
+            num_drop_critical = rows_to_drop.sum()
+
+            if num_drop_critical > 0:
+                print(
+                    f"   → Drop {num_drop_critical:,} records thiếu ít nhất 1 cột critical")
+                self.df = self.df[~rows_to_drop].copy()
+
+        # =====================================================================
+        # Xử lý logic nghiệp vụ (sau khi đã drop missing critical)
+        # =====================================================================
+
+        # 1. quantity_sold: đảm bảo là số nguyên, không âm
         if 'quantity_sold' in self.df.columns:
-            self.df['quantity_sold'] = self.df['quantity_sold'].fillna(0)
+            self.df['quantity_sold'] = self.df['quantity_sold'].clip(
+                lower=0).astype('int64')
 
-        self.df['original_price'] = pd.to_numeric(
-            self.df['original_price'], errors="coerce")
+        # 2. num_reviews: ép logic + tạo feature
+        if 'num_reviews' in self.df.columns:
+            # Ép: chưa bán → không có review
+            mask_not_sold = self.df['quantity_sold'] == 0
+            conflict = self.df.loc[mask_not_sold & (
+                self.df['num_reviews'] > 0)].shape[0]
+            if conflict > 0:
+                print(
+                    f"   ⚠️ Fix {conflict:,} records: sold=0 nhưng review>0 → set review=0")
+                self.df.loc[mask_not_sold, 'num_reviews'] = 0
 
-        # Điền giá trị mặc định cho cột text
-        self.df[self.TEXT_COLUMNS] = self.df[self.TEXT_COLUMNS].fillna(
-            "UNKNOWN")
-        print(f"✓ Dữ liệu thiếu đã được xử lý\n")
+            self.df['num_reviews'] = self.df['num_reviews'].clip(
+                lower=0).astype('int64')
+            self.df['has_reviews'] = (
+                self.df['num_reviews'] > 0).astype('int8')
+
+            zero_rev = (self.df['num_reviews'] == 0).sum()
+            print(
+                f"   - num_reviews = 0: {zero_rev:,} ({zero_rev/len(self.df)*100:.1f}%)")
+
+        # 3. discount_rate
+        if 'discount_rate' in self.df.columns:
+            self.df['discount_rate'] = self.df['discount_rate'].clip(0, 100)
+            self.df['has_discount'] = (
+                self.df['discount_rate'] > 0).astype('int8')
+
+        # 4. rating_average: ép logic + giới hạn
+        if 'rating_average' in self.df.columns:
+            # Không review → không có rating
+            mask_no_review = (self.df['num_reviews'] == 0)
+            invalid = self.df.loc[mask_no_review &
+                                  self.df['rating_average'].notna()].shape[0]
+            if invalid > 0:
+                print(
+                    f"   ⚠️ Fix {invalid:,} records: no review nhưng có rating → set NaN")
+                self.df.loc[mask_no_review, 'rating_average'] = np.nan
+
+            # Giới hạn giá trị
+            self.df['rating_average'] = self.df['rating_average'].clip(1, 5)
+            
+            # Fill rating_average NaN → 0 (không có review)
+            num_filled = self.df['rating_average'].isna().sum()
+            if num_filled > 0:
+                self.df['rating_average'] = self.df['rating_average'].fillna(0)
+                print(f"   - rating_average: fill {num_filled:,} NaN → 0 (no review)")
+
+        # =====================================================================
+        # Xử lý các cột text - FILL thay vì drop
+        # =====================================================================
+        TEXT_FILL = {
+            'brand': 'No Brand',
+            'seller_location': 'Unknown Location',
+            'quantity_sold_text': 'Chưa có thông tin bán'
+        }
+
+        for col, val in TEXT_FILL.items():
+            if col in self.df.columns:
+                miss = self.df[col].isna().sum()
+                if miss > 0:
+                    self.df[col] = self.df[col].fillna(val).str.strip()
+                    print(f"   - {col}: fill {miss:,} missing → '{val}'")
+
+        # =====================================================================
+        # Tổng kết
+        # =====================================================================
+        after_total = len(self.df)
+        dropped = before_total - after_total
+
+        print("   ✓ Hoàn thành preprocessing")
+        print("\n" + "="*60)
+        print("📊 KẾT QUẢ SAU XỬ LÝ MISSING (DROP)")
+        print("="*60)
+        print(f"   Trước xử lý     : {before_total:>12,} records")
+        print(f"   Sau khi drop    : {after_total:>12,} records")
+        print(
+            f"   Đã loại bỏ      : {dropped:>12,} records ({dropped/before_total*100:.1f}% nếu >0)")
+        print("✓ Hoàn thành xử lý missing values – chỉ giữ record có dữ liệu đầy đủ\n")
 
     def remove_duplicates_and_invalid(self):
-        """Bước 8: Loại bỏ dữ liệu trùng lặp và không hợp lệ"""
+        """Bước 8: Loại bỏ dữ liệu trùng lặp"""
         print("🗑️  Bước 7: Loại bỏ dữ liệu không hợp lệ...")
         print(f"  - Số record trước khi loại bỏ: {len(self.df)}")
 
@@ -327,9 +888,8 @@ class DataCleaner:
             by=[
                 "quantity_sold",
                 "num_reviews",
-                "rating_average_missing" if "rating_average_missing" in self.df.columns else "id"
             ],
-            ascending=[False, False, True]
+            ascending=[False, False]
         )
 
         # Loại bỏ trùng lặp
@@ -339,20 +899,37 @@ class DataCleaner:
         )
         self.df = self.df.reset_index(drop=True)
 
-        # Loại bỏ record không có tên sản phẩm
-        if 'product_name' in self.df.columns:
-            self.df = self.df[self.df['product_name'].notna()]
-
-        # Loại bỏ record có giá <= 0 hoặc null
-        if 'current_price' in self.df.columns:
-            self.df = self.df[self.df['current_price'] > 0]
-            self.df = self.df[self.df['current_price'].notna()]
-
         print(f"  - Số record sau khi loại bỏ: {len(self.df)}\n")
 
+    def handle_outliers(self):
+        """Bước 9: Xử lý outlier sau khi đã làm sạch cơ bản"""
+        print("\n" + "="*60)
+        print("🗑️ Bước 8: Xử lý outliers...")
+        print("="*60 + "\n")
+
+        handler = OutlierHandler(self.df)
+
+        handler\
+            .handle_price_outliers(upper_percentile=99.5)\
+            .handle_quantity_sold_outliers(upper_percentile=99.0)\
+            .handle_discount_outliers(max_discount=80)\
+            .handle_rating_outliers()\
+            .handle_num_reviews_outliers(
+                upper_percentile=99.7,
+                max_review_per_sold_ratio=1.0,
+                strategy="drop"
+            )
+
+        # Lưu báo cáo (tuỳ chọn)
+        handler.generate_comparison_report(output_dir='data/outlier_analysis')
+
+        self.df = handler.get_cleaned_data()
+        print(f"→ Sau xử lý outlier: {len(self.df):,} records\n")
+        return self
+
     def select_final_columns(self):
-        """Bước 9: Chọn các cột cần thiết"""
-        print("📋 Bước 8: Chọn cột cần thiết...")
+        """Bước 10: Chọn các cột cần thiết"""
+        print("📋 Bước 9: Chọn cột cần thiết...")
 
         # Chỉ lấy các cột tồn tại
         available_columns = [
@@ -362,8 +939,8 @@ class DataCleaner:
         print(f"✓ Cột cuối cùng: {len(self.df.columns)} cột\n")
 
     def save_data(self):
-        """Bước 10: Lưu dữ liệu"""
-        print(f"💾 Bước 9: Lưu dữ liệu...")
+        """Bước 11: Lưu dữ liệu"""
+        print(f"💾 Bước 10: Lưu dữ liệu...")
         print(f"  - Output file: {self.output_file}")
 
         # Tạo thư mục nếu chưa tồn tại
@@ -376,7 +953,7 @@ class DataCleaner:
         print(f"✓ Dữ liệu đã được lưu\n")
 
     def print_statistics(self):
-        """Bước 11: In thống kê tóm tắt"""
+        """Bước 12: In thống kê tóm tắt"""
         print("=" * 60)
         print("📊 THỐNG KÊ TÓM TẮT")
         print("=" * 60)
@@ -408,17 +985,9 @@ class DataCleaner:
             print(f"\nTop 5 Brands:")
             print(self.df['brand'].value_counts().head())
 
-        if 'quality_category' in self.df.columns:
-            print(f"\nQuality Distribution:")
-            print(self.df['quality_category'].value_counts())
-
-        if 'popularity_category' in self.df.columns:
-            print(f"\nPopularity Distribution:")
-            print(self.df['popularity_category'].value_counts())
-
         print("=" * 60)
         print("\n💡 Để xem biểu đồ trực quan hóa, chạy:")
-        print("   python main/visualize_cleaning_results.py")
+        print("   python visualizations/visualize_cleaned_data.py")
         print("=" * 60)
 
     def clean(self):
@@ -435,25 +1004,13 @@ class DataCleaner:
         self.clean_brand()
         self.handle_missing_data()
         self.remove_duplicates_and_invalid()
+        self.handle_outliers()
         self.select_final_columns()
         self.save_data()
         self.print_statistics()
 
         print("\n✅ HOÀN THÀNH!\n")
         return self.df
-
-
-# Hàm wrapper để tương thích với code cũ
-def clean_merged_data(input_file, output_file=None):
-    """
-    Làm sạch dữ liệu từ file merged_raw_data.json
-
-    Parameters:
-    - input_file: đường dẫn file .json đầu vào
-    - output_file: đường dẫn file output (mặc định: data/clean/merged_cleaned_data.json)
-    """
-    cleaner = DataCleaner(input_file, output_file)
-    return cleaner.clean()
 
 
 if __name__ == "__main__":
