@@ -76,18 +76,37 @@ class DataEncoder:
     def _identify_features(self):
         """Xác định categorical và numerical features"""
 
-        # Categorical features (từ features engineering)
+        # Categorical features (từ feature engineering v2.0)
         categorical = [
-            'quality_category', 'popularity_category', 'price_segment',
-            'seller_tier', 'brand_strength', 'lifecycle_status',
-            'discount_intensity'
+            'popularity_category',      # Phân loại độ phổ biến
+            'price_segment',            # Phân khúc giá
+            'quality_tier',             # Phân tầng chất lượng
+            'discount_intensity',       # Mức độ giảm giá
+            'product_age'               # Tuổi sản phẩm (Brand New, New, Recent, etc.)
         ]
 
-        # Numerical features
+        # Numerical features (từ feature engineering v2.0)
         numerical = [
-            'rating_average', 'num_reviews', 'quantity_sold',
-            'current_price', 'discount_rate', 'engagement_score',
-            'value_score', 'discount_intensity_score'
+            # Raw numerical features
+            'current_price', 'original_price', 'absolute_saving',
+            'discount_rate', 'rating_average', 'num_reviews', 
+            'quantity_sold', 'days_active',
+            
+            # Velocity features
+            'sales_velocity', 'sales_velocity_normalized',
+            'review_velocity', 'review_velocity_normalized',
+            
+            # Core score features (cho labeling)
+            'popularity_score',         # Cho Best Seller
+            'engagement_score',         # Cho Hot Trend
+            'trend_momentum',           # Cho Hot Trend
+            'value_score',              # Cho Best Deal
+            'deal_quality_score',       # Cho Best Deal
+            'discount_score',           # Hỗ trợ Best Deal
+            
+            # Category context features
+            'category_popularity_rank',
+            'category_price_percentile'
         ]
 
         # Lọc những features tồn tại trong df
