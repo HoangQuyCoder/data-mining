@@ -16,7 +16,7 @@ plt.rcParams['figure.facecolor'] = 'white'
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 DATA_PATH = PROJECT_ROOT / 'data' / 'clean' / 'merged_cleaned_data.json'
-OUTPUT_DIR = PROJECT_ROOT / 'data' / 'visualizations' / 'cleaned_data'
+OUTPUT_DIR = PROJECT_ROOT / 'data' / 'visualizations' / 'clean'
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -86,7 +86,17 @@ for bar in bars:
 # Stacked bar - phân bố theo category
 platform_category = df.groupby(
     ['platform', 'category']).size().unstack(fill_value=0)
-top_categories = df['category'].value_counts().head(10).index
+
+top_categories = (
+    df.groupby('platform')['category']
+      .value_counts()
+      .groupby(level=0)
+      .head(10)
+      .index
+      .get_level_values(1)
+      .unique()
+)
+
 platform_category_top = platform_category[top_categories]
 platform_category_top.plot(kind='bar', stacked=True, ax=axes[2],
                            colormap='tab20', edgecolor='black', linewidth=0.5)
@@ -205,26 +215,11 @@ for i, (bar, val) in enumerate(zip(bars, rating_by_platform.values)):
     ax2.text(val + 0.05, i, f'{val:.2f}',
              va='center', fontsize=10, fontweight='bold')
 
-# Phân bố quality_category nếu có
-if 'quality_category' in df.columns:
-    ax3 = axes[1, 0]
-    quality_counts = df['quality_category'].value_counts()
-    colors_quality = ['#6BCF7F', '#FFD93D', '#FF6B6B'][:len(quality_counts)]
-    bars = ax3.bar(quality_counts.index, quality_counts.values, color=colors_quality,
-                   edgecolor='black', alpha=0.8)
-    ax3.set_ylabel('Số lượng', fontsize=11, fontweight='bold')
-    ax3.set_title('Phân bố Quality Category', fontsize=12, fontweight='bold')
-    ax3.grid(axis='y', alpha=0.3)
-    for bar in bars:
-        height = bar.get_height()
-        ax3.text(bar.get_x() + bar.get_width()/2., height,
-                 f'{int(height):,}', ha='center', va='bottom', fontsize=10, fontweight='bold')
-
 # Boxplot rating theo platform
 ax4 = axes[1, 1]
 rating_by_platform_list = [df[df['platform'] == p]
                            ['rating_average'] for p in platforms]
-bp = ax4.boxplot(rating_by_platform_list, labels=platforms, patch_artist=True)
+bp = ax4.boxplot(rating_by_platform_list, labels=platforms, patch_artist=True, showfliers=False)
 for patch, color in zip(bp['boxes'], colors):
     patch.set_facecolor(color)
     patch.set_alpha(0.7)
@@ -269,22 +264,6 @@ ax2.grid(axis='x', alpha=0.3)
 for i, (bar, val) in enumerate(zip(bars, review_by_platform.values)):
     ax2.text(val + review_by_platform.max()*0.02, i, f'{val:,.0f}',
              va='center', fontsize=10, fontweight='bold')
-
-# Phân bố popularity_category nếu có
-if 'popularity_category' in df.columns:
-    ax3 = axes[1, 0]
-    pop_counts = df['popularity_category'].value_counts()
-    colors_pop = ['#FF6B6B', '#FFD93D', '#6BCF7F'][:len(pop_counts)]
-    bars = ax3.bar(pop_counts.index, pop_counts.values, color=colors_pop,
-                   edgecolor='black', alpha=0.8)
-    ax3.set_ylabel('Số lượng', fontsize=11, fontweight='bold')
-    ax3.set_title('Phân bố Popularity Category',
-                  fontsize=12, fontweight='bold')
-    ax3.grid(axis='y', alpha=0.3)
-    for bar in bars:
-        height = bar.get_height()
-        ax3.text(bar.get_x() + bar.get_width()/2., height,
-                 f'{int(height):,}', ha='center', va='bottom', fontsize=10, fontweight='bold')
 
 # Scatter: Rating vs Review Count
 ax4 = axes[1, 1]
@@ -496,85 +475,85 @@ plt.close()
 
 # 10. Phân tích Brand
 print("\n[10/12] Phân tích Brand...")
-brand_counts = df[df['brand'] != 'UNKNOWN']['brand'].value_counts().head(20)
-unknown_count = (df['brand'] == 'UNKNOWN').sum()
-print(
-    f"   - Tổng số brands (không kể UNKNOWN): {df[df['brand'] != 'UNKNOWN']['brand'].nunique()}")
-print(f"   - Số lượng UNKNOWN: {unknown_count:,}")
+
+# Đếm tổng
+brand_counts_full = df['brand'].value_counts()
+unknown_brand_count = brand_counts_full.get('No Brand', 0)
+known_brand_count = len(df) - unknown_brand_count
+
+print(f"   - Tổng số brands duy nhất (bao gồm 'No Brand'): {df['brand'].nunique()}")
+print(f"   - Số lượng 'No Brand': {unknown_brand_count:,} ({unknown_brand_count/len(df)*100:.1f}%)")
+
+# ─── Top 20 brands (loại trừ 'No Brand') ───
+top_brands = brand_counts_full.drop('No Brand', errors='ignore').head(20)
 
 fig, axes = plt.subplots(2, 2, figsize=(18, 14))
 
-# Top 20 brands
+# Biểu đồ 1: Top 20 brands (không tính No Brand)
 ax1 = axes[0, 0]
-colors_brand = plt.cm.get_cmap('tab20')(np.linspace(0, 1, len(brand_counts)))
-bars = ax1.barh(range(len(brand_counts)),
-                brand_counts.values, color=colors_brand)
-ax1.set_yticks(range(len(brand_counts)))
-ax1.set_yticklabels(brand_counts.index, fontsize=10)
-ax1.set_xlabel('Số lượng', fontsize=11, fontweight='bold')
-ax1.set_title('Top 20 Brands', fontsize=12, fontweight='bold')
-ax1.grid(axis='x', alpha=0.3)
-for i, (bar, val) in enumerate(zip(bars, brand_counts.values)):
-    ax1.text(val + brand_counts.max()*0.01, i, f'{int(val):,}',
-             va='center', fontsize=9, fontweight='bold')
+if not top_brands.empty:
+    colors = plt.cm.get_cmap('tab20')(np.linspace(0, 1, len(top_brands)))
+    bars = ax1.barh(top_brands.index, top_brands.values, color=colors)
+    ax1.set_xlabel('Số lượng sản phẩm')
+    ax1.set_title('Top 20 Thương hiệu phổ biến nhất', fontsize=13, fontweight='bold')
+    ax1.grid(axis='x', alpha=0.3, linestyle='--')
+    
+    # Thêm giá trị trên thanh
+    max_val = top_brands.max()
+    for bar in bars:
+        width = bar.get_width()
+        ax1.text(width + max_val*0.01, bar.get_y() + bar.get_height()/2,
+                 f'{int(width):,}', va='center', fontsize=10)
+else:
+    ax1.text(0.5, 0.5, 'Không có dữ liệu brand hợp lệ', ha='center', va='center', fontsize=12)
 
-# Tỷ lệ UNKNOWN vs có brand
+# Biểu đồ 2: Pie chart - tỷ lệ có brand vs No Brand
 ax2 = axes[0, 1]
-brand_summary = pd.Series({
-    'Có Brand': len(df[df['brand'] != 'UNKNOWN']),
-    'UNKNOWN': unknown_count
-})
-colors_summary = ['#6BCF7F', '#FF6B6B']
-explode = (0.05, 0.05)
-wedges, texts, autotexts = ax2.pie(
-    brand_summary.values,
-    labels=brand_summary.index,
-    autopct='%1.1f%%',
-    colors=colors_summary,
-    explode=explode,
-    shadow=True,
-    startangle=90
-)
-ax2.set_title('Tỷ lệ sản phẩm có/không có Brand',
-              fontsize=12, fontweight='bold')
-for text in texts:
-    text.set_fontsize(11)
-    text.set_fontweight('bold')
-for autotext in autotexts:
+labels_pie = ['Có thương hiệu', 'No Brand']
+sizes_pie = [known_brand_count, unknown_brand_count]
+colors_pie = ['#4CAF50', '#F44336']
+explode = (0.03, 0.08)
+
+w, t, at = ax2.pie(sizes_pie, labels=labels_pie, autopct='%1.1f%%',
+                   colors=colors_pie, explode=explode, shadow=True, startangle=90)
+ax2.axis('equal')
+ax2.set_title('Tỷ lệ sản phẩm có / không có thương hiệu', fontsize=13, fontweight='bold')
+
+for autotext in at:
     autotext.set_color('white')
-    autotext.set_fontsize(11)
     autotext.set_fontweight('bold')
 
-# Giá TB theo brand (top 10)
-ax3 = axes[1, 0]
-price_by_brand = df[df['brand'] != 'UNKNOWN'].groupby(
-    'brand')['current_price'].mean().nlargest(10)
-bars = ax3.barh(range(len(price_by_brand)), price_by_brand.values,
-                color=plt.cm.get_cmap('Purples')(np.linspace(0.4, 0.9, len(price_by_brand))))
-ax3.set_yticks(range(len(price_by_brand)))
-ax3.set_yticklabels(price_by_brand.index, fontsize=10)
-ax3.set_xlabel('Giá trung bình (VNĐ)', fontsize=11, fontweight='bold')
-ax3.set_title('Top 10 Brands có giá TB cao nhất',
-              fontsize=12, fontweight='bold')
-ax3.grid(axis='x', alpha=0.3)
-for i, (bar, val) in enumerate(zip(bars, price_by_brand.values)):
-    ax3.text(val + price_by_brand.max()*0.01, i, f'{val:,.0f}',
-             va='center', fontsize=9, fontweight='bold')
+# Biểu đồ 3 & 4: Giá TB và Sold theo brand (chỉ brand có thật)
+if not top_brands.empty:
+    # Giá trung bình
+    ax3 = axes[1, 0]
+    price_by_brand = df[df['brand'] != 'No Brand'].groupby('brand')['current_price'].mean().nlargest(10)
+    if not price_by_brand.empty:
+        bars = ax3.barh(price_by_brand.index, price_by_brand.values,
+                        color=plt.cm.get_cmap('Purples')(np.linspace(0.4, 0.95, len(price_by_brand))))
+        ax3.set_xlabel('Giá trung bình (VNĐ)')
+        ax3.set_title('Top 10 Brands - Giá trung bình cao nhất', fontsize=13, fontweight='bold')
+        ax3.grid(axis='x', alpha=0.3)
+        max_p = price_by_brand.max()
+        for bar in bars:
+            w = bar.get_width()
+            ax3.text(w + max_p*0.01, bar.get_y() + bar.get_height()/2,
+                     f'{w:,.0f}', va='center', fontsize=10)
 
-# Số lượng bán theo brand (top 10)
-ax4 = axes[1, 1]
-sold_by_brand = df[df['brand'] != 'UNKNOWN'].groupby(
-    'brand')['quantity_sold'].sum().nlargest(10)
-bars = ax4.barh(range(len(sold_by_brand)), sold_by_brand.values,
-                color=plt.cm.get_cmap('Reds')(np.linspace(0.4, 0.9, len(sold_by_brand))))
-ax4.set_yticks(range(len(sold_by_brand)))
-ax4.set_yticklabels(sold_by_brand.index, fontsize=10)
-ax4.set_xlabel('Tổng số lượng bán', fontsize=11, fontweight='bold')
-ax4.set_title('Top 10 Brands bán chạy nhất', fontsize=12, fontweight='bold')
-ax4.grid(axis='x', alpha=0.3)
-for i, (bar, val) in enumerate(zip(bars, sold_by_brand.values)):
-    ax4.text(val + sold_by_brand.max()*0.01, i, f'{int(val):,}',
-             va='center', fontsize=9, fontweight='bold')
+    # Số lượng bán
+    ax4 = axes[1, 1]
+    sold_by_brand = df[df['brand'] != 'No Brand'].groupby('brand')['quantity_sold'].sum().nlargest(10)
+    if not sold_by_brand.empty:
+        bars = ax4.barh(sold_by_brand.index, sold_by_brand.values,
+                        color=plt.cm.get_cmap('Reds')(np.linspace(0.4, 0.95, len(sold_by_brand))))
+        ax4.set_xlabel('Tổng số lượng bán')
+        ax4.set_title('Top 10 Brands - Bán chạy nhất', fontsize=13, fontweight='bold')
+        ax4.grid(axis='x', alpha=0.3)
+        max_s = sold_by_brand.max()
+        for bar in bars:
+            w = bar.get_width()
+            ax4.text(w + max_s*0.01, bar.get_y() + bar.get_height()/2,
+                     f'{int(w):,}', va='center', fontsize=10)
 
 plt.tight_layout()
 plt.savefig(OUTPUT_DIR / '08_brand_analysis.png', dpi=300, bbox_inches='tight')
@@ -583,30 +562,34 @@ plt.close()
 
 # 11. Phân tích Location
 print("\n[11/12] Phân tích Location...")
-location_counts = df[df['seller_location'] !=
-                     'UNKNOWN']['seller_location'].value_counts().head(20)
-unknown_loc = (df['seller_location'] == 'UNKNOWN').sum()
-print(
-    f"   - Tổng số locations: {df[df['seller_location'] != 'UNKNOWN']['seller_location'].nunique()}")
-print(f"   - Số lượng UNKNOWN: {unknown_loc:,}")
 
-fig, ax = plt.subplots(figsize=(14, 10))
-colors_loc = plt.cm.get_cmap('viridis')(
-    np.linspace(0, 1, len(location_counts)))
-bars = ax.barh(range(len(location_counts)),
-               location_counts.to_numpy(dtype=int), color=colors_loc)
-ax.set_yticks(range(len(location_counts)))
-ax.set_yticklabels(location_counts.index, fontsize=10)
-ax.set_xlabel('Số lượng', fontsize=11, fontweight='bold')
-ax.set_title('Top 20 Địa điểm bán hàng', fontsize=12, fontweight='bold')
-ax.grid(axis='x', alpha=0.3)
-for i, (bar, val) in enumerate(zip(bars, location_counts.values)):
-    ax.text(val + location_counts.max()*0.01, i, f'{int(val):,}',
-            va='center', fontsize=9, fontweight='bold')
+loc_counts_full = df['seller_location'].value_counts()
+unknown_loc_count = loc_counts_full.get('Unknown Location', 0)
+
+print(f"   - Tổng số địa điểm duy nhất: {df['seller_location'].nunique()}")
+print(f"   - Số lượng 'Unknown Location': {unknown_loc_count:,} ({unknown_loc_count/len(df)*100:.1f}%)")
+
+# Top 20 locations (loại trừ Unknown)
+top_locations = loc_counts_full.drop('Unknown Location', errors='ignore').head(20)
+
+fig, ax = plt.subplots(figsize=(14, 9))
+if not top_locations.empty:
+    colors = plt.cm.get_cmap('viridis')(np.linspace(0.1, 0.9, len(top_locations)))
+    bars = ax.barh(top_locations.index, top_locations.to_numpy(dtype=int), color=colors)
+    ax.set_xlabel('Số lượng sản phẩm')
+    ax.set_title('Top 20 Địa điểm bán hàng phổ biến nhất', fontsize=13, fontweight='bold')
+    ax.grid(axis='x', alpha=0.3)
+    
+    max_v = top_locations.max()
+    for bar in bars:
+        w = bar.get_width()
+        ax.text(w + max_v*0.01, bar.get_y() + bar.get_height()/2,
+                f'{int(w):,}', va='center', fontsize=10)
+else:
+    ax.text(0.5, 0.5, 'Không có dữ liệu location hợp lệ', ha='center', va='center', fontsize=12)
 
 plt.tight_layout()
-plt.savefig(OUTPUT_DIR / '09_location_analysis.png',
-            dpi=300, bbox_inches='tight')
+plt.savefig(OUTPUT_DIR / '09_location_analysis.png', dpi=300, bbox_inches='tight')
 print(f"   ✓ Đã lưu: 09_location_analysis.png")
 plt.close()
 

@@ -15,7 +15,7 @@ plt.rcParams['axes.unicode_minus'] = False
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 DATA_PATH = PROJECT_ROOT / 'data' / 'preliminary' / 'merged_preliminary_data.json'
-OUTPUT_DIR = PROJECT_ROOT / 'data' / 'visualizations' / 'raw_data'
+OUTPUT_DIR = PROJECT_ROOT / 'data' / 'visualizations' / 'raw'
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 print("=" * 80)
@@ -205,7 +205,7 @@ ax3 = axes[1, 0]
 price_by_platform = [df[df['platform'] == p]['price_cleaned'].dropna()
                      for p in df['platform'].unique()]
 bp = ax3.boxplot(price_by_platform,
-                 labels=df['platform'].unique(), patch_artist=True)
+                 labels=df['platform'].unique(), patch_artist=True, showfliers=False)
 for patch, color in zip(bp['boxes'], ['#ff6b6b', '#4ecdc4', '#45b7d1']):
     patch.set_facecolor(color)
     patch.set_alpha(0.7)
@@ -662,5 +662,5 @@ print("  7. 07_brand_analysis.png - Phân tích brand")
 print("  8. 08_location_analysis.png - Phân tích location")
 print("  9. 09_top_quantity_sold.png - Phân tích quantity sold")
 print("  8. 10_seller_analysis.png - Phân tích seller")
-print("  9. data_quality_report.txt - Báo cáo chất lượng dữ liệu")
+print("  10. data_quality_report.txt - Báo cáo chất lượng dữ liệu")
 print("\n" + "=" * 80)
