@@ -3,10 +3,11 @@ import time
 import random
 import datetime
 import logging
-from crawl.base_crawler import crawl_all_generic, get_fresh_cookies
-from crawl.settings import (
+from base_crawler import crawl_all_generic, get_fresh_cookies
+from settings import (
     TIKI_RAW_DIR,
     TIKI_CATEGORY_DIR,
+    TIKI_CATEGORIES,
     MAX_PAGES,
     SLEEP_MIN,
     SLEEP_MAX
@@ -14,38 +15,6 @@ from crawl.settings import (
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
-
-TIKI_CATEGORIES = [
-    {"name": "Nhà Sách Tiki", "urlKey": "nha-sach-tiki", "category": "8322"},
-    {"name": "Nhà Cửa - Đời sống", "urlKey": "nha-cua-doi-song", "category": "1883"},
-    {"name": "Điện Thoại - Máy Tính Bảng",
-        "urlKey": "dien-thoai-may-tinh-bang", "category": "1789"},
-    {"name": "Đồ Chơi - Mẹ & Bé", "urlKey": "do-choi-me-be", "category": "2549"},
-    {"name": "Thiết Bị Số - Phụ Kiện Số",
-        "urlKey": "thiet-bi-so-phu-kien-so", "category": "1815"},
-    {"name": "Điện Gia Dụng", "urlKey": "dien-gia-dung", "category": "20824"},
-    {"name": "Làm Đẹp - Sức Khỏe", "urlKey": "lam-dep-suc-khoe", "category": "1520"},
-    {"name": "Ô Tô - Xe Máy - Xe Đạp",
-        "urlKey": "o-to-xe-may-xe-dap", "category": "21346"},
-    {"name": "Thời Trang Nữ", "urlKey": "thoi-trang-nu", "category": "931"},
-    {"name": "Bách Hóa Online", "urlKey": "bach-hoa-online", "category": "4384"},
-    {"name": "Thể Thao - Dã Ngoại", "urlKey": "the-thao-da-ngoai", "category": "1975"},
-    {"name": "Thời Trang Nam", "urlKey": "thoi-trang-nam", "category": "915"},
-    {"name": "Laptop - Máy Vi Tính - Linh Kiện",
-        "urlKey": "laptop-may-vi-tinh-linh-kien", "category": "1846"},
-    {"name": "Giày Dép Nam", "urlKey": "giay-dep-nam", "category": "1686"},
-    {"name": "Điện Tử - Điện Lạnh", "urlKey": "dien-tu-dien-lanh", "category": "4221"},
-    {"name": "Giày Dép Nữ", "urlKey": "giay-dep-nu", "category": "1703"},
-    {"name": "Máy Ảnh - Máy Quay Phim", "urlKey": "may-anh", "category": "1801"},
-    {"name": "Phụ kiện thời trang",
-        "urlKey": "phu-kien-thoi-trang", "category": "27498"},
-    {"name": "Đồng hồ và Trang sức",
-        "urlKey": "dong-ho-va-trang-suc", "category": "8371"},
-    {"name": "Balo và Vali", "urlKey": "balo-va-vali", "category": "6000"},
-    {"name": "Túi thời trang nữ", "urlKey": "tui-thoi-trang-nu", "category": "976"},
-    {"name": "Túi thời trang nam", "urlKey": "tui-thoi-trang-nam", "category": "27616"},
-    {"name": "Chăm sóc nhà cửa", "urlKey": "cham-soc-nha-cua", "category": "15078"},
-]
 
 
 def get_fresh_cookies_tiki():
@@ -79,9 +48,10 @@ def crawl_category_tiki(cat, cookies, max_pages, retries=2):
 
     for page in range(1, max_pages + 1):
         params["page"] = page
-        attempt = 0
+        retry_count = 0
         success = False
-        while attempt < retries and not success:
+
+        while retry_count < retries and not success:
             try:
                 resp = requests.get(BASE_URL, headers=HEADERS,
                                     cookies=cookies, params=params, timeout=20)
@@ -103,7 +73,7 @@ def crawl_category_tiki(cat, cookies, max_pages, retries=2):
                 # products.append(items)
                 for item in items:
                     if not item or not isinstance(item, dict):
-                        continue  # Bỏ qua item None hoặc không phải dict
+                        continue  
 
                     qs = item.get("quantity_sold", {})
                     seller = item.get("seller") or {}
@@ -138,9 +108,9 @@ def crawl_category_tiki(cat, cookies, max_pages, retries=2):
                 time.sleep(random.uniform(PAGE_SLEEP_MIN, PAGE_SLEEP_MAX))
 
             except Exception as e:
-                attempt += 1
+                retry_count += 1
                 logging.error(
-                    f"{cat['name']} trang {page} (thử {attempt}): {e}")
+                    f"{cat['name']} trang {page} (thử {retry_count}): {e}")
                 time.sleep(random.uniform(SLEEP_MIN, SLEEP_MAX))
 
         if not success:

@@ -4,10 +4,11 @@ import random
 import re
 import datetime
 import logging
-from crawl.base_crawler import crawl_all_generic, get_fresh_cookies
-from crawl.settings import (
+from base_crawler import crawl_all_generic, get_fresh_cookies
+from settings import (
     LAZADA_RAW_DIR,
     LAZADA_CATEGORY_DIR,
+    LAZADA_CATEGORIES,
     MAX_PAGES,
     SLEEP_MAX,
     SLEEP_MIN
@@ -16,30 +17,6 @@ from crawl.settings import (
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
-
-LAZADA_CATEGORIES = [
-    {"name": "Điện thoại di động", "path": "dien-thoai-di-dong"},
-    {"name": "Máy tính bảng", "path": "may-tinh-bang"},
-    {"name": "Laptop", "path": "laptop"},
-    {"name": "Pin sạc dự phòng", "path": "pin-sac-du-phong"},
-    {"name": "Tai nghe không dây", "path": "shop-wireless-earbuds"},
-    {"name": "Máy ảnh máy quay phim", "path": "may-anh-may-quay-phim"},
-    {"name": "Tủ lạnh", "path": "tu-lanh"},
-    {"name": "Máy giặt", "path": "may-giat"},
-    {"name": "Máy lạnh", "path": "may-lanh"},
-    {"name": "Áo phông & Áo ba lỗ", "path": "shop-t-shirts-&-tanks"},
-    {"name": "Quần jeans", "path": "shop-men-jeans"},
-    {"name": "Dưỡng da & Serum", "path": "duong-da-va-serum"},
-    {"name": "Son thỏi", "path": "son-thoi"},
-    {"name": "Bách hóa online", "path": "bach-hoa-online"},
-    {"name": "Phụ kiện làm thơm phòng", "path": "do-dung-lam-thom-phong"},
-    {"name": "Giường", "path": "giuong"},
-    {"name": "Bóng đá", "path": "bong-da"},
-    {"name": "Máy chạy bộ", "path": "may-chay-bo"},
-    {"name": "Bikini", "path": "bikini-2"},
-    {"name": "Búp bê cho bé", "path": "bup-be-cho-be"},
-    {"name": "Xe máy", "path": "xe-may"},
-]
 
 
 def get_fresh_cookies_lazada(path: str):
@@ -75,7 +52,7 @@ def crawl_category_lazada(cat, cookies, max_pages, retries=2):
     PAGE_SLEEP_MIN = SLEEP_MIN / 3
     PAGE_SLEEP_MAX = SLEEP_MAX / 3
 
-    while page <= max_pages:
+    for page in range(1, max_pages + 1):
         params = {"ajax": "true", "page": page}
         retry_count = 0
         success = False
@@ -108,6 +85,9 @@ def crawl_category_lazada(cat, cookies, max_pages, retries=2):
 
                 # products.append(items)
                 for item in items:
+                    if not item or not isinstance(item, dict):
+                        continue
+
                     sold_cnt_show = item.get("itemSoldCntShow")
                     sold_text = (sold_cnt_show or "").strip(
                     ) if sold_cnt_show else ""
@@ -120,7 +100,11 @@ def crawl_category_lazada(cat, cookies, max_pages, retries=2):
                             sold_value = int(numbers[0])
                             if 'k' in sold_text.lower() or 'K' in sold_text:
                                 sold_value *= 1000
-                    products.append({
+
+                    item_url = item.get("itemUrl")
+                    full_url = f"https:{item_url}" if item_url else None
+
+                    product = {
                         "crawl_date": datetime.datetime.now().strftime("%Y-%m-%d"),
                         "platform": "Lazada",
                         "category_name": name,
@@ -136,10 +120,11 @@ def crawl_category_lazada(cat, cookies, max_pages, retries=2):
                         "brand": item.get("brandName"),
                         "location": item.get("location"),
                         "seller_name": item.get("sellerName"),
-                        "url": "https:" + item.get("itemUrl") if item.get("itemUrl") else None, })
+                        "url": full_url
+                    }
+                    products.append(product)
 
                 success = True
-                page += 1
                 time.sleep(random.uniform(PAGE_SLEEP_MIN, PAGE_SLEEP_MAX))
 
             except Exception as e:
@@ -148,7 +133,7 @@ def crawl_category_lazada(cat, cookies, max_pages, retries=2):
                 time.sleep(random.uniform(SLEEP_MIN, SLEEP_MAX))
 
         if not success:
-            page += 1
+            break
 
     return products
 

@@ -21,7 +21,7 @@ def get_fresh_cookies(
     Hàm chung lấy cookies từ một URL bất kỳ.
 
     Args:
-        url: URL cần lấy cookies (mặc định tiki.vn)
+        url: URL cần lấy cookies (mặc định "")
         headless: Chế độ headless (mặc định True)
         scroll: Có scroll trang hay không (mặc định False)
         wait_time: Thời gian chờ tải trang (mặc định 10 giây)
@@ -36,7 +36,7 @@ def get_fresh_cookies(
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1920,1080")
+    options.add_argument("--start-maximized")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_argument(
         "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"

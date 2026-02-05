@@ -4,10 +4,11 @@ import random
 import math
 import logging
 import datetime
-from crawl.base_crawler import crawl_all_generic
-from crawl.settings import (
+from base_crawler import crawl_all_generic
+from settings import (
     SHOPEE_RAW_DIR,
     SHOPEE_CATEGORY_DIR,
+    SHOPEE_CATEGORIES,
     MAX_PAGES,
     SLEEP_MIN,
     SLEEP_MAX
@@ -15,29 +16,6 @@ from crawl.settings import (
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
-
-# --- DANH MỤC SHOPEE ---
-SHOPEE_CATEGORIES = [
-    {"name": "Điện thoại", "url": "https://shopee.vn/search?keyword=Điện%20thoại"},
-    {"name": "Laptop", "url": "https://shopee.vn/search?keyword=Laptop"},
-    {"name": "Thời trang nữ", "url": "https://shopee.vn/search?keyword=Thời%20trang%20nữ"},
-    {"name": "Thời trang nam", "url": "https://shopee.vn/search?keyword=Thời%20trang%20nam"},
-    {"name": "Giày dép", "url": "https://shopee.vn/search?keyword=Giày%20dép"},
-    {"name": "Túi xách", "url": "https://shopee.vn/search?keyword=Túi%20xách"},
-    {"name": "Đồng hồ", "url": "https://shopee.vn/search?keyword=Đồng%20hồ"},
-    {"name": "Trang sức", "url": "https://shopee.vn/search?keyword=Trang%20sức"},
-    {"name": "Mỹ phẩm", "url": "https://shopee.vn/search?keyword=Mỹ%20phẩm"},
-    {"name": "Chăm sóc da", "url": "https://shopee.vn/search?keyword=Chăm%20sóc%20da"},
-    {"name": "Máy ảnh", "url": "https://shopee.vn/search?keyword=Máy%20ảnh"},
-    {"name": "Máy tính bảng", "url": "https://shopee.vn/search?keyword=Máy%20tính%20bảng"},
-    {"name": "Headphone", "url": "https://shopee.vn/search?keyword=Headphone"},
-    {"name": "Loa", "url": "https://shopee.vn/search?keyword=Loa"},
-    {"name": "Phụ kiện điện thoại",
-        "url": "https://shopee.vn/search?keyword=Phụ%20kiện%20điện%20thoại"},
-    {"name": "Sách", "url": "https://shopee.vn/search?keyword=Sách"},
-]
-
-# --- HÀM DELAY THÔNG MINH ---
 
 
 def smart_delay(action_type='normal'):
@@ -71,6 +49,8 @@ def get_browser_instance():
     co.set_argument('--disable-blink-features=AutomationControlled')
     co.set_argument('--no-sandbox')
     co.set_argument('--disable-dev-shm-usage')
+    co.set_argument("--disable-gpu")
+    co.set_argument("--disable-dev-shm-usage")
     co.set_argument('--start-maximized')
     # Use a specific user data folder to save login session if desired
     co.set_user_data_path(r'./chrome_profile')
@@ -151,7 +131,7 @@ def crawl_category_shopee(cat, cookies=None, max_pages=5, retries=2):
         try:
             for packet in page.listen.steps(timeout=8):
                 try:
-                    body = packet.response.body # type: ignore
+                    body = packet.response.body  # type: ignore
                     if not isinstance(body, dict):
                         continue
 
@@ -173,7 +153,8 @@ def crawl_category_shopee(cat, cookies=None, max_pages=5, retries=2):
 
                         price = (basic.get('price', 0) or 0) / 100000
 
-                        sold_text = basic.get('item_card_display_sold_count',{}).get('display_sold_count_text',{})
+                        sold_text = basic.get('item_card_display_sold_count', {}).get(
+                            'display_sold_count_text', {})
 
                         product = {
                             "crawl_date": datetime.datetime.now().strftime("%Y-%m-%d"),
