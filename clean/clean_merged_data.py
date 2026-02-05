@@ -754,15 +754,12 @@ class DataCleaner:
         print(f"✓ Brand đã được chuẩn hóa\n")
 
     def handle_missing_data(self):
-        """Bước 6: Xử lý missing values - PHIÊN BẢN DROP RECORD KHÔNG ĐỦ DỮ LIỆU"""
-        print("🧹 Bước 6: Xử lý missing values (phiên bản drop record thiếu dữ liệu quan trọng)...")
+        """Bước 6: Xử lý missing values"""
+        print("🧹 Bước 6: Xử lý missing values...")
 
         before_total = len(self.df)
         print(f"   Trước xử lý: {before_total:,} records")
 
-        # =====================================================================
-        # Định nghĩa các cột BẮT BUỘC (critical) - thiếu bất kỳ cột nào thì drop
-        # =====================================================================
         CRITICAL_COLUMNS = [
             'quantity_sold',
             'num_reviews',
@@ -770,7 +767,6 @@ class DataCleaner:
             'discount_rate',
         ]
 
-        # Lọc các cột critical thực sự tồn tại trong dataframe
         critical_cols_present = [
             col for col in CRITICAL_COLUMNS if col in self.df.columns]
 
@@ -791,18 +787,13 @@ class DataCleaner:
                     f"   → Drop {num_drop_critical:,} records thiếu ít nhất 1 cột critical")
                 self.df = self.df[~rows_to_drop].copy()
 
-        # =====================================================================
-        # Xử lý logic nghiệp vụ (sau khi đã drop missing critical)
-        # =====================================================================
-
-        # 1. quantity_sold: đảm bảo là số nguyên, không âm
+        # đảm bảo là số nguyên, không âm
         if 'quantity_sold' in self.df.columns:
             self.df['quantity_sold'] = self.df['quantity_sold'].clip(
                 lower=0).astype('int64')
 
-        # 2. num_reviews: ép logic + tạo feature
+        # ép logic + tạo feature
         if 'num_reviews' in self.df.columns:
-            # Ép: chưa bán → không có review
             mask_not_sold = self.df['quantity_sold'] == 0
             conflict = self.df.loc[mask_not_sold & (
                 self.df['num_reviews'] > 0)].shape[0]
@@ -820,15 +811,14 @@ class DataCleaner:
             print(
                 f"   - num_reviews = 0: {zero_rev:,} ({zero_rev/len(self.df)*100:.1f}%)")
 
-        # 3. discount_rate
+        # discount_rate
         if 'discount_rate' in self.df.columns:
             self.df['discount_rate'] = self.df['discount_rate'].clip(0, 100)
             self.df['has_discount'] = (
                 self.df['discount_rate'] > 0).astype('int8')
 
-        # 4. rating_average: ép logic + giới hạn
+        # ép logic + giới hạn
         if 'rating_average' in self.df.columns:
-            # Không review → không có rating
             mask_no_review = (self.df['num_reviews'] == 0)
             invalid = self.df.loc[mask_no_review &
                                   self.df['rating_average'].notna()].shape[0]
@@ -846,9 +836,6 @@ class DataCleaner:
                 self.df['rating_average'] = self.df['rating_average'].fillna(0)
                 print(f"   - rating_average: fill {num_filled:,} NaN → 0 (no review)")
 
-        # =====================================================================
-        # Xử lý các cột text - FILL thay vì drop
-        # =====================================================================
         TEXT_FILL = {
             'brand': 'No Brand',
             'seller_location': 'Unknown Location',
@@ -862,9 +849,6 @@ class DataCleaner:
                     self.df[col] = self.df[col].fillna(val).str.strip()
                     print(f"   - {col}: fill {miss:,} missing → '{val}'")
 
-        # =====================================================================
-        # Tổng kết
-        # =====================================================================
         after_total = len(self.df)
         dropped = before_total - after_total
 
