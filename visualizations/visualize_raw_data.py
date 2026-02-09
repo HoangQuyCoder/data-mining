@@ -14,12 +14,12 @@ plt.rcParams['axes.unicode_minus'] = False
 # Đường dẫn file
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
-DATA_PATH = PROJECT_ROOT / 'data' / 'preliminary' / 'merged_preliminary_data.json'
+DATA_PATH = PROJECT_ROOT / 'data' / 'raw' / 'merged_raw_data.json'
 OUTPUT_DIR = PROJECT_ROOT / 'data' / 'visualizations' / 'raw'
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 print("=" * 80)
-print("TRỰC QUAN HÓA DỮ LIỆU PRELIMINARY - PHỤC VỤ LÀM SẠCH DỮ LIỆU".center(80))
+print("TRỰC QUAN HÓA DỮ LIỆU RAW - PHỤC VỤ LÀM SẠCH DỮ LIỆU".center(80))
 print("=" * 80)
 
 # 1. Đọc dữ liệu

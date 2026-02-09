@@ -76,7 +76,7 @@ class DataEncoder:
     def _identify_features(self):
         """Xác định categorical và numerical features"""
 
-        # Categorical features (từ feature engineering v2.0)
+        # Categorical features
         categorical = [
             'popularity_category',      # Phân loại độ phổ biến
             'price_segment',            # Phân khúc giá
@@ -85,7 +85,7 @@ class DataEncoder:
             'product_age'               # Tuổi sản phẩm (Brand New, New, Recent, etc.)
         ]
 
-        # Numerical features (từ feature engineering v2.0)
+        # Numerical features 
         numerical = [
             # Raw numerical features
             'current_price', 'original_price', 'absolute_saving',
@@ -96,7 +96,7 @@ class DataEncoder:
             'sales_velocity', 'sales_velocity_normalized',
             'review_velocity', 'review_velocity_normalized',
             
-            # Core score features (cho labeling)
+            # Core score features
             'popularity_score',         # Cho Best Seller
             'engagement_score',         # Cho Hot Trend
             'trend_momentum',           # Cho Hot Trend

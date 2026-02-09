@@ -1,4 +1,4 @@
-from sklearn.preprocessing import MinMaxScaler
+
 from matplotlib import pyplot as plt
 import pandas as pd
 import numpy as np
@@ -849,6 +849,7 @@ class DataCleaner:
                     self.df[col] = self.df[col].fillna(val).str.strip()
                     print(f"   - {col}: fill {miss:,} missing → '{val}'")
 
+
         after_total = len(self.df)
         dropped = before_total - after_total
 
@@ -1001,8 +1002,8 @@ if __name__ == "__main__":
     # Đường dẫn input/output
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     input_file = os.path.join(
-        base, 'data/preliminary/merged_preliminary_data.json')
-    output_file = os.path.join(base, 'data/clean/merged_cleaned_data.json')
+        base, 'data/raw/merged_raw_data.json')
+    output_file = os.path.join(base, 'data/cleaned/merged_cleaned_data.json')
 
     # Sử dụng class DataCleaner
     cleaner = DataCleaner(input_file, output_file)

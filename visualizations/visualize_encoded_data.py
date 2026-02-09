@@ -30,13 +30,13 @@ class EncodedDataVisualizer:
         - encoded_data_file: đường dẫn đến file encoded_data.json
         """
         self.encoded_data_file = encoded_data_file
-        self.data = None
-        self.X_train = None
-        self.X_test = None
-        self.y_train = None
-        self.y_test = None
-        self.feature_names = None
-        self.feature_info = None
+        # self.data = None
+        # self.X_train = None
+        # self.X_test = None
+        # self.y_train = None
+        # self.y_test = None
+        # self.feature_names = None
+        # self.feature_info = None
         
         # Load data
         self._load_data()
@@ -129,7 +129,10 @@ class EncodedDataVisualizer:
         inverse_mapping = {v: k for k, v in label_mapping.items()}
         
         # Count labels
-        unique, counts = np.unique(self.y_train, return_counts=True)
+        y_train = np.asarray(self.y_train)
+
+        unique, counts = np.unique(y_train, return_counts=True)
+
         label_names = [inverse_mapping.get(int(l), f"Label {l}") for l in unique]
         
         # Create figure with 2 subplots
@@ -147,7 +150,7 @@ class EncodedDataVisualizer:
         for bar, count in zip(bars, counts):
             height = bar.get_height()
             axes[0].text(bar.get_x() + bar.get_width()/2., height,
-                        f'{int(count):,}\n({count/len(self.y_train)*100:.1f}%)',
+                        f'{int(count):,}\n({count/len(np.asarray(self.y_train))*100:.1f}%)',
                         ha='center', va='bottom', fontsize=10)
         
         # Pie chart
@@ -165,7 +168,8 @@ class EncodedDataVisualizer:
             fig, axes = plt.subplots(1, 2, figsize=(14, 6))
             
             # Train
-            unique_train, counts_train = np.unique(self.y_train, return_counts=True)
+            y_train = np.asarray(self.y_train)
+            unique_train, counts_train = np.unique(y_train, return_counts=True)
             label_names_train = [inverse_mapping.get(int(l), f"Label {l}") for l in unique_train]
             axes[0].bar(label_names_train, counts_train, color=colors[:len(label_names_train)])
             axes[0].set_title('Train Set Labels', fontsize=14, fontweight='bold')
@@ -208,8 +212,15 @@ class EncodedDataVisualizer:
                  f'Other\n({len(other_features)})']
         colors = ['#3498db', '#e74c3c', '#95a5a6']
         
-        wedges, texts, autotexts = ax.pie(sizes, labels=labels, autopct='%1.1f%%',
-                                          colors=colors, startangle=90)
+        pie_result = ax.pie(
+            sizes,
+            labels=labels,
+            autopct='%1.1f%%',
+            colors=colors,
+            startangle=90
+        )
+        autotexts = pie_result[2] if len(pie_result) == 3 else []
+
         
         for autotext in autotexts:
             autotext.set_color('white')
@@ -394,7 +405,7 @@ class EncodedDataVisualizer:
         # Create DataFrame with labels
         df_analysis = self.X_train[scaled_features].copy()
         df_analysis['label'] = [inverse_mapping.get(int(l), f"Label {l}") 
-                                for l in self.y_train]
+                                for l in np.asarray(self.y_train)]
         
         # Create box plots
         fig, axes = plt.subplots(2, 3, figsize=(15, 10))

@@ -254,7 +254,7 @@ def create_quantity_sold_comparison(df_raw, df_cleaned, output_dir):
     
     # 1. Box plot so sánh
     ax1 = plt.subplot(2, 3, 1)
-    bp = ax1.boxplot([qty_raw, qty_cleaned], labels=['Raw', 'Cleaned'],
+    bp = ax1.boxplot([qty_raw, qty_cleaned], tick_labels=['Raw', 'Cleaned'],
                       patch_artist=True, showfliers=True)
     bp['boxes'][0].set_facecolor('#ff6b6b')
     bp['boxes'][1].set_facecolor('#51cf66')
@@ -308,7 +308,7 @@ def create_quantity_sold_comparison(df_raw, df_cleaned, output_dir):
     qty_binned = pd.cut(qty_cleaned, bins=bins_ranges, labels=labels, include_lowest=True)
     qty_dist = qty_binned.value_counts().sort_index()
     
-    colors_gradient = plt.cm.viridis(np.linspace(0, 1, len(qty_dist)))
+    colors_gradient = plt.cm.get_cmap('viridis')(np.linspace(0, 1, len(qty_dist)))
     bars = ax4.bar(range(len(qty_dist)), qty_dist.values, color=colors_gradient, edgecolor='black')
     ax4.set_xticks(range(len(qty_dist)))
     ax4.set_xticklabels(qty_dist.index, rotation=45, ha='right')
@@ -347,9 +347,10 @@ def create_quantity_sold_comparison(df_raw, df_cleaned, output_dir):
     labels_pie = [f'Retained\n{len(qty_cleaned):,}', f'Removed\n{outliers_removed:,}']
     colors_pie = ['#51cf66', '#ff6b6b']
     
-    wedges, texts, autotexts = ax6.pie(data, labels=labels_pie, autopct='%1.1f%%',
+    ax6.pie(data, labels=labels_pie, autopct='%1.1f%%',
                                          colors=colors_pie, startangle=90,
                                          textprops={'fontsize': 10, 'fontweight': 'bold'})
+    
     ax6.set_title(f'Records Removed ({outliers_pct:.1f}%)', fontsize=12, fontweight='bold')
     
     plt.tight_layout()
@@ -395,7 +396,7 @@ def create_rating_comparison(df_raw, df_cleaned, output_dir):
     
     # 2. Box plot
     ax2 = plt.subplot(2, 3, 2)
-    bp = ax2.boxplot([rating_raw, rating_cleaned], labels=['Raw', 'Cleaned'],
+    bp = ax2.boxplot([rating_raw, rating_cleaned], tick_labels=['Raw', 'Cleaned'],
                       patch_artist=True, showfliers=True)
     bp['boxes'][0].set_facecolor('#ff6b6b')
     bp['boxes'][1].set_facecolor('#51cf66')
@@ -455,11 +456,13 @@ def create_rating_comparison(df_raw, df_cleaned, output_dir):
     ax5 = plt.subplot(2, 3, 5)
     if 'quality_category' in df_cleaned.columns:
         quality_dist = df_cleaned['quality_category'].value_counts()
-        colors_quality = plt.cm.RdYlGn(np.linspace(0.2, 0.8, len(quality_dist)))
-        
-        wedges, texts, autotexts = ax5.pie(quality_dist.values, labels=quality_dist.index,
+        cmap = plt.cm.get_cmap('RdYlGn')
+        colors_quality = [tuple(c) for c in cmap(np.linspace(0.2, 0.8, len(quality_dist)))]
+
+        ax5.pie(quality_dist.values, labels=quality_dist.index,
                                              autopct='%1.1f%%', colors=colors_quality,
                                              startangle=90, textprops={'fontsize': 9, 'fontweight': 'bold'})
+        
         ax5.set_title('Phân Loại Chất Lượng', fontsize=12, fontweight='bold')
     else:
         ax5.text(0.5, 0.5, 'No quality_category\navailable', ha='center', va='center',
@@ -516,7 +519,7 @@ def create_review_comparison(df_raw, df_cleaned, output_dir):
     
     # 1. Box plot
     ax1 = plt.subplot(2, 3, 1)
-    bp = ax1.boxplot([review_raw, review_cleaned], labels=['Raw', 'Cleaned'],
+    bp = ax1.boxplot([review_raw, review_cleaned], tick_labels=['Raw', 'Cleaned'],
                       patch_artist=True, showfliers=True)
     bp['boxes'][0].set_facecolor('#ff6b6b')
     bp['boxes'][1].set_facecolor('#51cf66')
@@ -570,7 +573,7 @@ def create_review_comparison(df_raw, df_cleaned, output_dir):
     review_binned = pd.cut(review_cleaned, bins=bins_ranges, labels=labels, include_lowest=True)
     review_dist = review_binned.value_counts().sort_index()
     
-    colors_gradient = plt.cm.plasma(np.linspace(0, 1, len(review_dist)))
+    colors_gradient = plt.cm.get_cmap('plasma')(np.linspace(0, 1, len(review_dist)))
     bars = ax4.bar(range(len(review_dist)), review_dist.values, color=colors_gradient, edgecolor='black')
     ax4.set_xticks(range(len(review_dist)))
     ax4.set_xticklabels(review_dist.index, rotation=45, ha='right')
@@ -660,7 +663,7 @@ def create_discount_comparison(df_raw, df_cleaned, output_dir):
     
     # 2. Box plot
     ax2 = plt.subplot(2, 3, 2)
-    bp = ax2.boxplot([discount_raw, discount_cleaned], labels=['Raw', 'Cleaned'],
+    bp = ax2.boxplot([discount_raw, discount_cleaned], tick_labels=['Raw', 'Cleaned'],
                       patch_artist=True, showfliers=True)
     bp['boxes'][0].set_facecolor('#ff6b6b')
     bp['boxes'][1].set_facecolor('#51cf66')
@@ -704,7 +707,7 @@ def create_discount_comparison(df_raw, df_cleaned, output_dir):
     discount_binned = pd.cut(discount_cleaned, bins=discount_ranges, labels=discount_labels, include_lowest=True)
     discount_dist = discount_binned.value_counts().sort_index()
     
-    colors_discount = plt.cm.Reds(np.linspace(0.3, 0.9, len(discount_dist)))
+    colors_discount = plt.cm.get_cmap('Reds')(np.linspace(0.3, 0.9, len(discount_dist)))
     bars = ax4.bar(range(len(discount_dist)), discount_dist.values, color=colors_discount, edgecolor='black')
     ax4.set_xticks(range(len(discount_dist)))
     ax4.set_xticklabels(discount_dist.index, rotation=45, ha='right')
@@ -743,7 +746,7 @@ def create_discount_comparison(df_raw, df_cleaned, output_dir):
     labels_pie = [f'Có Giảm Giá\n{has_discount:,}', f'Không Giảm Giá\n{no_discount:,}']
     colors_pie = ['#e74c3c', '#95a5a6']
     
-    wedges, texts, autotexts = ax6.pie(data, labels=labels_pie, autopct='%1.1f%%',
+    ax6.pie(data, labels=labels_pie, autopct='%1.1f%%',
                                          colors=colors_pie, startangle=90,
                                          textprops={'fontsize': 10, 'fontweight': 'bold'})
     ax6.set_title('Tỷ Lệ Sản Phẩm Có/Không Giảm Giá', fontsize=12, fontweight='bold')

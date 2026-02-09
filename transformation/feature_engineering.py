@@ -93,7 +93,6 @@ class FeatureEngineer:
         self.df['crawl_date'] = pd.to_datetime(self.df['crawl_date'])
         max_date = self.df['crawl_date'].max()
 
-        # Days active: vẫn giữ để tính velocity nếu cần
         self.df['days_active'] = (max_date - self.df['crawl_date']).dt.days + 1
 
         # Kiểm tra số ngày crawl duy nhất
@@ -334,14 +333,6 @@ class FeatureEngineer:
         """
         💎 Điểm giá trị tổng hợp (0-100)
         - Quan trọng cho: ƯU ĐÃI
-
-        Công thức (v2 - bias-corrected):
-        - Discount score (45%) — core signal cho Best Deal
-        - Rating RELATIVE (20%) — so với median trong category, không phải raw/5
-        - Price competitiveness (35%) — percentile rank giá trong category
-
-        FIX: rating mean=4.77 → raw/5 cho ~95 điểm cho hầu hết sản phẩm.
-        Thay bằng z-score relative vs category median → chỉ reward thực sự tốt hơn peers.
         """
         print("  💎 Tính Value Score (0-100)...")
 
@@ -388,16 +379,6 @@ class FeatureEngineer:
         """
         🎁 Chất lượng deal (0-100)
         - Quan trọng cho: ƯU ĐÃI
-
-        Công thức (v2 - bias-corrected):
-        - Absolute saving (45%) - tiết kiệm tuyệt đối (core signal)
-        - Rating RELATIVE (20%) - so với median category
-        - Review credibility (20%) - review nhiều = đáng tin
-        - Discount gate (15%) - bonus chỉ nếu discount >= Moderate
-
-        FIX 1: rating raw/5 cho ~95 điểm cho hầu hết → thay bằng relative.
-        FIX 2: Thêm HARD GATE: nếu discount_rate < 15% → deal_quality = 0.
-                Sản phẩm không có giảm giá thực sự không thể là Best Deal.
         """
         print("  🎁 Tính Deal Quality Score (0-100)...")
 

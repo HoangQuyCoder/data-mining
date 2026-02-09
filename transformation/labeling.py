@@ -139,46 +139,46 @@ class ProductLabeler:
 
         # Hot Trend thresholds - nới lỏng
         if 'trend_momentum' in self.df.columns:
-            trend_p70 = self.df['trend_momentum'].quantile(0.70)  
-            trend_p75 = self.df['trend_momentum'].quantile(0.75)  
-            trend_p80 = self.df['trend_momentum'].quantile(0.80)   
+            trend_p70 = self.df['trend_momentum'].quantile(0.70)
+            trend_p75 = self.df['trend_momentum'].quantile(0.75)
+            trend_p80 = self.df['trend_momentum'].quantile(0.80)
         else:
             trend_p70 = trend_p75 = trend_p80 = 0
 
         if 'engagement_score' in self.df.columns:
-            engagement_p65 = self.df['engagement_score'].quantile(0.65) 
-            engagement_p70 = self.df['engagement_score'].quantile(0.70)  
+            engagement_p65 = self.df['engagement_score'].quantile(0.65)
+            engagement_p70 = self.df['engagement_score'].quantile(0.70)
         else:
             engagement_p65 = engagement_p70 = 0
 
         # Best Seller thresholds - nới lỏng
         if 'popularity_score' in self.df.columns:
-            popularity_p55 = self.df['popularity_score'].quantile(0.55)  
-            popularity_p60 = self.df['popularity_score'].quantile(0.60)  
-            popularity_p65 = self.df['popularity_score'].quantile(0.65)  
-            popularity_p70 = self.df['popularity_score'].quantile(0.70) 
+            popularity_p55 = self.df['popularity_score'].quantile(0.55)
+            popularity_p60 = self.df['popularity_score'].quantile(0.60)
+            popularity_p65 = self.df['popularity_score'].quantile(0.65)
+            popularity_p70 = self.df['popularity_score'].quantile(0.70)
         else:
             popularity_p55 = popularity_p60 = popularity_p65 = popularity_p70 = 0
 
         if 'sales_velocity_normalized' in self.df.columns:
-            sales_vel_p65 = self.df['sales_velocity_normalized'].quantile(0.65) 
-            sales_vel_p70 = self.df['sales_velocity_normalized'].quantile(0.70)  
+            sales_vel_p65 = self.df['sales_velocity_normalized'].quantile(0.65)
+            sales_vel_p70 = self.df['sales_velocity_normalized'].quantile(0.70)
         else:
             sales_vel_p65 = sales_vel_p70 = 0
 
         # Best Deal thresholds - nới lỏng nhẹ
         if 'deal_quality_score' in self.df.columns:
-            deal_p70  = self.df['deal_quality_score'].quantile(0.70)   
-            deal_p75  = self.df['deal_quality_score'].quantile(0.75) 
-            deal_p80  = self.df['deal_quality_score'].quantile(0.80)   
-            deal_p85  = self.df['deal_quality_score'].quantile(0.85)   
+            deal_p70 = self.df['deal_quality_score'].quantile(0.70)
+            deal_p75 = self.df['deal_quality_score'].quantile(0.75)
+            deal_p80 = self.df['deal_quality_score'].quantile(0.80)
+            deal_p85 = self.df['deal_quality_score'].quantile(0.85)
         else:
             deal_p70 = deal_p75 = deal_p80 = deal_p85 = 0
 
         if 'value_score' in self.df.columns:
-            value_p65 = self.df['value_score'].quantile(0.65)         
-            value_p70 = self.df['value_score'].quantile(0.70)       
-            value_p75 = self.df['value_score'].quantile(0.75)        
+            value_p65 = self.df['value_score'].quantile(0.65)
+            value_p70 = self.df['value_score'].quantile(0.70)
+            value_p75 = self.df['value_score'].quantile(0.75)
         else:
             value_p65 = value_p70 = value_p75 = 0
 
@@ -212,7 +212,7 @@ class ProductLabeler:
             }
         }
 
-        # In thresholds mới 
+        # In thresholds mới
         print(f"\n   🔥 Hot Trend (nới lỏng):")
         print(f"      trend_momentum >= {trend_p75:.2f} (P75)")
         print(f"      engagement_score >= {engagement_p65:.2f} (P65)")
@@ -246,36 +246,34 @@ class ProductLabeler:
             value_score = row.get('value_score', np.nan)
             discount_intensity = row.get('discount_intensity', None)
 
-            # Get thresholds (đã nới lỏng)
+            # Get thresholds
             ht = self.thresholds['hot_trend']
             bs = self.thresholds['best_seller']
             bd = self.thresholds['best_deal']
 
-            # 🔥 SEED FOR HOT TREND (strict nhưng nới lỏng)
+            # 🔥 SEED FOR HOT TREND
             if pd.notna(trend_momentum):
-                # Very strict: trước P85 → giờ P80
                 if trend_momentum >= ht['trend_momentum_p80']:
                     return 'Hot Trend', f"seed: momentum>={ht['trend_momentum_p80']:.1f} (P80)"
 
-                # Strict: trước P80 + Brand New/New → giờ P75 + Brand New/New
                 if (trend_momentum >= ht['trend_momentum_p75'] and
-                    product_age in ['Brand New', 'New']):
+                        product_age in ['Brand New', 'New']):
                     return 'Hot Trend', f"seed: momentum>={ht['trend_momentum_p75']:.1f} & brand_new/new"
 
-            # 🏆 SEED FOR BEST SELLER 
+            # 🏆 SEED FOR BEST SELLER
             if pd.notna(popularity_score):
                 # Tier cao: trước P80 + Premium/High → giờ P70 + Premium/High
                 if (popularity_score >= bs['popularity_score_p70'] and
-                    quality_tier in ['Premium', 'High']):
+                        quality_tier in ['Premium', 'High']):
                     return 'Best Seller', f"seed: popularity>={bs['popularity_score_p70']:.1f} & high_quality"
 
                 # Tier trung: trước P70 + quality ok → giờ P65 + quality ok
                 if (popularity_score >= bs['popularity_score_p65'] and
                     sales_velocity >= bs['sales_velocity_p65'] and
-                    quality_tier in bs['high_quality_tiers']):
+                        quality_tier in bs['high_quality_tiers']):
                     return 'Best Seller', f"seed: popularity>={bs['popularity_score_p65']:.1f} & quality ok"
 
-                # Tier thấp: trước P60 → giờ P55 
+                # Tier thấp: trước P60 → giờ P55
                 if popularity_score >= bs['popularity_score_p55']:
                     return 'Best Seller', f"seed: popularity>={bs['popularity_score_p55']:.1f}"
 
@@ -287,12 +285,12 @@ class ProductLabeler:
 
                 # Trước P85 + discount mạnh → giờ P80 + discount ok
                 if (deal_quality_score >= bd['deal_quality_score_p80'] and
-                    discount_intensity in ['Aggressive', 'Heavy', 'Moderate']):
+                        discount_intensity in ['Aggressive', 'Heavy', 'Moderate']):
                     return 'Best Deal', f"seed: deal_quality>={bd['deal_quality_score_p80']:.1f} & aggressive/heavy/moderate"
 
                 # Trước P80 + value P75 → giờ P75 + value P70
                 if (deal_quality_score >= bd['deal_quality_score_p75'] and
-                    value_score >= bd['value_score_p70']):
+                        value_score >= bd['value_score_p70']):
                     return 'Best Deal', f"seed: deal_quality>={bd['deal_quality_score_p75']:.1f} & value>={bd['value_score_p70']:.1f}"
 
             # No seed
@@ -304,7 +302,7 @@ class ProductLabeler:
         self.df['label_source'] = np.where(
             self.df['seed_label'].notna(), 'rule_seed', 'unlabeled')
 
-        # In thống kê seed (giữ nguyên)
+        # In thống kê seed
         counts = self.df['seed_label'].value_counts(dropna=True)
         print("\n   Seed distribution (sau khi nới lỏng):")
         if len(counts) == 0:
@@ -314,11 +312,12 @@ class ProductLabeler:
             for label, count in counts.items():
                 pct = count / len(self.df) * 100
                 print(f"     - {label}: {count:,} ({pct:.1f}% of total)")
-            print(f"     → Total seeds: {total_seeds:,} ({total_seeds/len(self.df)*100:.1f}%)")
+            print(
+                f"     → Total seeds: {total_seeds:,} ({total_seeds/len(self.df)*100:.1f}%)")
 
     def _assign_labels_rule_based(self):
         """
-        Gán labels bằng rule-based logic đầy đủ - đã nới lỏng ngưỡng
+        Gán labels bằng rule-based logic đầy đủ 
         Priority order giữ nguyên: Hot Trend > Best Seller > Best Deal > Normal
         """
 
@@ -336,7 +335,7 @@ class ProductLabeler:
             value_score = row.get('value_score', 0)
             discount_intensity = row.get('discount_intensity', '')
 
-            # Get thresholds 
+            # Get thresholds
             ht = self.thresholds['hot_trend']
             bs = self.thresholds['best_seller']
             bd = self.thresholds['best_deal']
@@ -366,13 +365,13 @@ class ProductLabeler:
             # Priority 2: 🏆 BEST SELLER
             # ========================================
             # Tier 1: Top seller – trước P80 + Premium/High → giờ P70 + Premium/High
-            if (popularity_score >= bs['popularity_score_p70'] and 
-                quality_tier in ['Premium', 'High']):
+            if (popularity_score >= bs['popularity_score_p70'] and
+                    quality_tier in ['Premium', 'High']):
                 return 'Best Seller'
 
             # Tier 2: Strong seller – trước P70 → giờ P65
             if (popularity_score >= bs['popularity_score_p65'] and
-                quality_tier in bs['high_quality_tiers']):
+                    quality_tier in bs['high_quality_tiers']):
                 return 'Best Seller'
 
             # Tier 3: Solid seller – trước P60 → giờ P55
@@ -392,19 +391,19 @@ class ProductLabeler:
 
             # Tier 2: Great deal – trước P85 + value P80 → giờ P80 + value P75
             if (deal_quality_score >= bd['deal_quality_score_p80'] and
-                value_score >= bd['value_score_p75']):
+                    value_score >= bd['value_score_p75']):
                 return 'Best Deal'
 
             # Tier 3: Good deal – trước P80 + value P75 → giờ P75 + value P70
             if (deal_quality_score >= bd['deal_quality_score_p75'] and
                 value_score >= bd['value_score_p70'] and
-                discount_intensity in ['Aggressive', 'Heavy', 'Moderate']):
+                    discount_intensity in ['Aggressive', 'Heavy', 'Moderate']):
                 return 'Best Deal'
 
             # Tier 4: Decent deal – trước P75 + value P70 → giờ P70 + value P65
             if (deal_quality_score >= bd['deal_quality_score_p70'] and
                 value_score >= bd['value_score_p65'] and
-                discount_intensity in ['Aggressive', 'Heavy', 'Moderate']):
+                    discount_intensity in ['Aggressive', 'Heavy', 'Moderate']):
                 return 'Best Deal'
 
             # ========================================
@@ -573,12 +572,11 @@ class ProductLabeler:
                 y_val, val_pred, output_dict=True, zero_division=0)
             for cls in valid_classes:
                 cls_str = str(cls)
-                cls_report = report_dict.get(cls_str, {}) # type: ignore
+                cls_report = report_dict.get(cls_str, {})  # type: ignore
                 if isinstance(cls_report, dict):
                     precision = cls_report.get('precision', 0.0)
                     recall = cls_report.get('recall', 0.0)
                     print(f"     {cls}: P={precision:.2f} R={recall:.2f}")
-
 
         # Predict for unlabeled
         unlabeled_idx = self.df[self.df['seed_label'].isna()].index
@@ -636,7 +634,8 @@ class ProductLabeler:
                 pred_labels_arr = np.array(pred_labels, dtype=object)
                 pred_labels_arr[excess_positions] = 'Normal'
                 pred_labels = list(pred_labels_arr)
-                print(f"\n   ⚠️  Best Deal cap applied: {bd_count} → {remaining_bd_quota} (reassigned {excess_count} → Normal)")
+                print(
+                    f"\n   ⚠️  Best Deal cap applied: {bd_count} → {remaining_bd_quota} (reassigned {excess_count} → Normal)")
 
             # Stats on predictions
             high_conf_count = (best_prob >= prob_threshold).sum()
@@ -786,7 +785,12 @@ def create_labeling(
     print("✅ LABELING COMPLETED")
     print("=" * 80 + "\n")
 
-    return df_labeled
+    stats = {
+        "total": len(df_labeled),
+        "distribution": df_labeled['label'].value_counts().to_dict()
+    }
+
+    return df_labeled, stats # type: ignore
 
 
 if __name__ == "__main__":
