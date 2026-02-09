@@ -21,11 +21,7 @@ from typing import Optional, Dict, Any
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('pipeline.log'),
-        logging.StreamHandler(sys.stdout)
-    ]
+    format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
@@ -43,13 +39,12 @@ class PipelineConfig:
         # Directories
         self.data_dir = os.path.join(self.base_dir, 'data')
         self.raw_dir = os.path.join(self.data_dir, 'raw')
-        self.preliminary_dir = os.path.join(self.data_dir, 'preliminary')
         self.clean_dir = os.path.join(self.data_dir, 'clean')
         self.transformation_dir = os.path.join(self.data_dir, 'transformation')
 
         # Output files
         self.merged_raw_file = os.path.join(
-            self.preliminary_dir, 'merged_preliminary_data.json')
+            self.raw_dir, 'merged_raw_data.json')
         self.cleaned_file = os.path.join(
             self.clean_dir, 'cleaned_merged_data.json')
         self.engineered_file = os.path.join(
@@ -77,7 +72,7 @@ class PipelineConfig:
 
     def _create_directories(self):
         """Tạo các thư mục cần thiết"""
-        for directory in [self.data_dir, self.raw_dir, self.preliminary_dir,
+        for directory in [self.data_dir, self.raw_dir,
                           self.clean_dir, self.transformation_dir, self.encoder_dir]:
             os.makedirs(directory, exist_ok=True)
 
@@ -234,7 +229,7 @@ class DataMiningPipeline:
                 from common.utils import merge_json_files
 
                 total = merge_json_files(
-                    input_dir=self.config.preliminary_dir,
+                    input_dir=self.config.raw_dir,
                     output_file=self.config.merged_raw_file
                 )
                 logger.info(f"✅ Merged {total} records")
